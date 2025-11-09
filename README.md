@@ -45,6 +45,11 @@ Paylaşımlı hostinglerde veya cPanel kullanan sunucularda, tek bir komutla kur
 
 ### 2️⃣ Kurulum Adımları
 
+#### 🔸 Gereksinimleri yükkle
+```php
+composer install
+```
+
 #### 🔸 Veritabanı oluşturma
 Öncelikle aşağıdaki isimde bir veritabanı oluşturun:
 ```sql
