@@ -45,7 +45,7 @@ Paylaşımlı hostinglerde veya cPanel kullanan sunucularda, tek bir komutla kur
 
 ### 2️⃣ Kurulum Adımları
 
-#### 🔸 Gereksinimleri yükkle
+#### 🔸 Gereksinimleri yükle
 ```php
 composer install
 ```
