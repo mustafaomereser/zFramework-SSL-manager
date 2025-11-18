@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/PHP-8%2B-blue?style=for-the-badge&logo=php" />
-  <img src="https://img.shields.io/badge/zFramework-Compatible-brightgreen?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/zFramework-v2.7-brightgreen?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Status-Stable-success?style=for-the-badge" />
 </p>
