@@ -2,7 +2,6 @@
 <script>
     domainModal = currentModal;
     modalTitle(domainModal, 'Domain <?= $edit ? 'edit' : 'create' ?>');
-    modalResize(domainModal, 'lg');
 </script>
 <div class="modal-body">
     <form id="domain-form">
@@ -27,19 +26,10 @@
             </div>
         <?php endif ?>
 
-        <div class="form-group row align-items-center mb-2">
-            <div for="public_dir" class="col-4 fw-bold">Public Dir</div>
-            <div class="col-8">
-                <input type="text" class="form-control" name="public_dir" id="public_dir" value="<?= @$item['public_dir'] ?>" placeholder="Public Dir" required>
-            </div>
-        </div>
-
-        <h4>cPanel API</h4>
         <?php if ($main): ?>
-            <div class="alert alert-info" role="alert">
-                <i class="fa fa-info-circle"></i> its providing from main domain.
-            </div>
+            <div class="info-banner"><i class="fas fa-circle-info"></i> cPanel API settings are inherited from the main domain. </div>
         <?php else: ?>
+            <div class="divider-label my-3"><span>cPanel API</span></div>
             <?php $item['cpanel'] = json_decode($item['cpanel'] ?? '[]', true) ?>
             <div class="form-group row align-items-center mb-2">
                 <div for="cpanel-username" class="col-4 fw-bold">cPanel Username <i class="fa fa-info-circle text-info" data-toggle="tooltip" title="If you using a shared hosting you must wrote your hosting username."></i></div>
@@ -58,20 +48,19 @@
         <div class="form-group clearfix mt-4">
             <?php if (!$edit) : ?>
                 <div class="float-end">
-                    <button type="submit" class="btn btn-cst btn-outline-success"><i class="fa fa-save"></i> Create</button>
+                    <button type="submit" class="btn btn-accent btn-sm"><i class="fa fa-save"></i> Create</button>
                 </div>
             <?php else : ?>
                 <div class="float-start">
-                    <button type="button" class="btn btn-outline-danger" delete-account><i class="fa fa-trash-alt"></i> Delete</button>
+                    <button type="button" class="btn btn-row danger btn-sm" delete-account><i class="fa fa-trash-alt"></i> Delete</button>
                 </div>
                 <div class="float-end">
-                    <button type="submit" class="btn btn-cst btn-outline-warning"><i class="fa fa-save"></i> Update</button>
+                    <button type="submit" class="btn btn-row btn-sm"><i class="fa fa-save"></i> Update</button>
                 </div>
             <?php endif ?>
         </div>
     </form>
 </div>
-
 
 <?php if ($edit) : ?>
     <script>

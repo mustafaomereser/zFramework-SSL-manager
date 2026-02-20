@@ -16,12 +16,7 @@ class Domains extends Model
 
     public function certificates(array $data)
     {
-        if ($data['main_domain']) {
-            $parent = $this->parent($data);
-            $data['domain'] = $data['domain'] . "." . $parent['domain'];
-        }
-
-        return $this->findRelation(Certificates::class, $data['domain'], 'domain')->orderBy(['id' => 'DESC'])->get();
+        return $this->findRelation(Certificates::class, $data['fulldomain'], 'domain')->orderBy(['id' => 'DESC'])->get();
     }
 
     public function subdomains(array $data)

@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Helpers\API;
 use App\Models\Certificates;
+use App\Models\Domains;
 use zFramework\Core\Abstracts\Controller;
 use zFramework\Core\Facades\Alerts;
 use zFramework\Core\Facades\Response;
@@ -18,6 +19,7 @@ class CertificatesController extends Controller
     public function __construct()
     {
         $this->certificates = new Certificates;
+        $this->domains      = new Domains;
     }
 
     /** Index page | GET: /
@@ -42,26 +44,27 @@ class CertificatesController extends Controller
      */
     public function create()
     {
+        API::setSettingsDomain(request('id'));
         $order     = API::$autoSSL->newOrder(API::$prepareDomain['domain']);
         $challenge = API::$autoSSL->challenge($order['body']['challenges']);
 
-        $this->certificates->insert([
-            'domain'         => API::$domain['domain'],
-            'order_data'     => json_encode($order, JSON_UNESCAPED_UNICODE),
-            'challenge_data' => json_encode($challenge, JSON_UNESCAPED_UNICODE),
+        $cert = $this->certificates->insert([
+            'domain'         => API::$domain['fulldomain'],
+            'order_data'     => $order,
+            'challenge_data' => $challenge,
         ]);
-
-        return view('app.modals.certificates.create');
+        Alerts::success('Cert ordered.');
+        return Response::json(['status' => 1, 'cert' => $cert]);
     }
 
     public function uploadChallenge($id)
     {
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
+        $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
         $challenge   = json_decode($certificate['challenge_data'], true);
 
-        API::init();
-
-        $dir = API::$domain['public_dir'] . '/.well-known/acme-challenge';
+        API::setSettingsDomain($domain['id']);
+        $dir = API::domainPath($domain['fulldomain']) . '/.well-known/acme-challenge';
         $tmp = tmpfile();
         fwrite($tmp, $challenge['key']);
         fseek($tmp, 0);
@@ -73,18 +76,25 @@ class CertificatesController extends Controller
         ]);
 
         if ($upload['status']) {
-            echo 'ok';
+            Alerts::success('Challenge uploaded.');
             $certificate['update']([
                 'upload_challenge_data' => $upload
             ]);
         } else {
-            foreach ($upload['data']['uploads'] as $reason) echo $reason['reason'] . "<br>";
+            Alerts::danger('Challenge not uploaded');
+            foreach ($upload['data']['uploads'] as $reason) Alerts::danger($reason['reason']);
         }
+
+        return Response::json([]);
     }
 
     public function challenge($id)
     {
-        $certificate     = $this->certificates->where('id', $id)->firstOrFail();
+        $certificate = $this->certificates->where('id', $id)->firstOrFail();
+        $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
+        API::setSettingsDomain($domain['id']);
+
+
         $order           = json_decode($certificate['order_data'], true);
         $challenge       = json_decode($certificate['challenge_data'], true);
 
@@ -96,13 +106,14 @@ class CertificatesController extends Controller
             $challenge = API::$autoSSL->challenge($order['body']['challenges']);
 
             $certificate['update']([
-                'order_data'     => json_encode($order, JSON_UNESCAPED_UNICODE),
+                'order_data'     => $order,
                 'challenge_data' => $challenge,
             ]);
 
             Alerts::danger($challengeAuth['message']);
             Alerts::warning('Order and challenge renewed.');
-            die(Response::json(['tries' => $challengeAuth['tries']], JSON_PRETTY_PRINT));
+            Alerts::warning('Tried for ' . $challengeAuth['tries'] . ' times.');
+            return Response::json(['status' => 0]);
         }
 
         $finalize        = API::$autoSSL->finalize($order, API::$prepareDomain['domain'], API::$prepareDomain['dir']);
@@ -113,19 +124,23 @@ class CertificatesController extends Controller
             'ca_bundle'            => $getCertificate['ca_bundle'],
             'private'              => $getCertificate['private'],
             'last_date'            => date('Y-m-d H:i:s', (openssl_x509_parse(openssl_x509_read($getCertificate['ca_bundle']))['validTo_time_t'])),
-            'notifyChallenge_data' => json_encode($notifyChallenge, JSON_UNESCAPED_UNICODE),
-            'challengeAuth_data'   => json_encode($challengeAuth, JSON_UNESCAPED_UNICODE),
-            'finalize_data'        => json_encode($finalize, JSON_UNESCAPED_UNICODE),
-            'getCertificate_data'  => json_encode($getCertificate, JSON_UNESCAPED_UNICODE),
+            'notifyChallenge_data' => $notifyChallenge,
+            'challengeAuth_data'   => $challengeAuth,
+            'finalize_data'        => $finalize,
+            'getCertificate_data'  => $getCertificate,
         ]);
 
-        return 'ok';
+        Alerts::success('Challenge accepted.');
+
+        return Response::json(['status' => 1]);
     }
 
     public function download($id)
     {
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
-
+        $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
+        API::setSettingsDomain($domain['id']);
+        
         $zip      = new ZipArchive();
         $temp_zip = tempnam(sys_get_temp_dir(), 'zip');
         if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) exit("Zip cannot open!");
@@ -151,13 +166,22 @@ class CertificatesController extends Controller
     public function install($id)
     {
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
+        $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
+        API::setSettingsDomain($domain['id']);
+
         $result      = SSL::install(API::$domain['domain'], $certificate['cert'], $certificate['private'], $certificate['ca_bundle']);
-        if ($result['status']) $certificate['update']([
-            'install_ssl_data' => json_encode($result, JSON_UNESCAPED_UNICODE)
-        ]);
-        echo "<pre>";
-        print_r($result);
-        echo "</pre><script>loadDomains()</script>";
+        if ($result['status']) {
+            $certificate['update']([
+                'install_ssl_data' => $result
+            ]);
+            Alerts::success('SSL Installed.');
+        } else {
+            Alerts::danger('SSL do not installed.');
+            foreach ($result['errors'] ?? [] as $error) Alerts::danger($error);
+            foreach ($result['warnings'] ?? [] as $warning) Alerts::danger($warning);
+        }
+
+        return Response::json(['status' => 1]);
     }
 
 

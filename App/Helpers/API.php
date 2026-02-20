@@ -4,9 +4,9 @@ namespace App\Helpers;
 
 use App\Models\Certificates;
 use App\Models\Domains;
-use zFramework\Core\Facades\Cookie;
 use zFramework\Core\Helpers\AutoSSL;
 use zFramework\Core\Helpers\cPanel\API as CPanelAPI;
+use zFramework\Core\Helpers\cPanel\Domain;
 
 class API
 {
@@ -17,23 +17,81 @@ class API
     public static function init()
     {
         // self::$autoSSL = new AutoSSL(AutoSSL::PROD, '..\apache\conf\openssl.cnf');
-
         self::$autoSSL = new AutoSSL(['staging' => AutoSSL::STAGING, 'prod' => AutoSSL::PROD][config('autossl.mode')] ?? AutoSSL::STAGING);
+    }
 
-        self::$domain  = (new Domains)->where('id', Cookie::get('domain') ?? 0)->first();
+    public static function setSettingsDomain($domain_id)
+    {
+        self::$domain  = (new Domains)->where('id', $domain_id)->first();
         if (self::$domain['main_domain']) {
             $parent = self::$domain['parent']();
-            self::$domain['domain'] = self::$domain['domain'] . "." . $parent['domain'];
+            self::$domain['domain'] = self::$domain['fulldomain'];
             self::$domain['cpanel'] = $parent['cpanel'];
         }
 
-        if (!isset(self::$domain['id'])) return;
-        self::$prepareDomain = self::$autoSSL->prepareDomain(self::$domain['domain']);
+        if (!isset(self::$domain['id']) || !self::$domain['fulldomain']) return;
+        self::$prepareDomain = self::$autoSSL->prepareDomain(self::$domain['fulldomain']);
 
         $cpanel = json_decode(self::$domain['cpanel'], true);
-        CPanelAPI::$domain   = self::$domain['domain'];
+        CPanelAPI::$domain   = $parent['domain'] ?? self::$domain['domain'];
         CPanelAPI::$username = $cpanel['username'];
         CPanelAPI::$apiToken = $cpanel['api-token'];
+    }
+
+    public static function domainPath(string $domain): ?string
+    {
+        $domain = preg_replace('/^www\./', '', strtolower($domain));
+        $data   = Domain::data()['data'] ?? [];
+        foreach (['main_domain', 'sub_domains', 'addon_domains'] as $key) {
+
+            if (empty($data[$key])) continue;
+
+            // main_domain tek obje, diğerleri array
+            $items = $key === 'main_domain'
+                ? [$data[$key]]
+                : $data[$key];
+
+            foreach ($items as $item) {
+                $d = preg_replace('/^www\./', '', strtolower($item['domain'] ?? ''));
+                if ($d === $domain) {
+                    return $item['documentroot'] ?? null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static function getSSLStatus($fullDomain): array
+    {
+        try {
+            error_reporting(0);
+            $checkSSL = self::$autoSSL->checkSSL($fullDomain);
+            error_reporting(E_ALL);
+
+            if (!$checkSSL) {
+                return ['status' => 'none', 'label' => 'No SSL', 'days_left' => null, 'last_date' => null];
+            }
+
+            $daysLeft = (int) $checkSSL['days_left'];
+            $lastDate = $checkSSL['last_date'] ?? null;
+
+            [$status, $label] = match (true) {
+                $daysLeft <= 0  => ['err',  'ERR'],
+                $daysLeft <= 30 => ['warn', 'EXP'],
+                default         => ['ok',   'OK'],
+            };
+
+            return [
+                'status'    => $status,
+                'label'     => $label,
+                'days_left' => $daysLeft,
+                'last_date' => $lastDate,
+            ];
+        } catch (\Throwable $e) {
+            error_reporting(E_ALL);
+            return ['status' => 'err', 'label' => 'ERR', 'days_left' => null, 'last_date' => null];
+        }
     }
 
     public static function allcertificates()

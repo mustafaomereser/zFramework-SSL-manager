@@ -1,4 +1,4 @@
-@extends('errors.app.main')
+@extends('app.main')
 
 @section('body')
 <div class="text-center my-5">

@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\Domains;
+use App\Models\Certificates;
 use App\Requests\Welcome\CommandRequest;
 use zFramework\Core\Abstracts\Controller;
 
@@ -12,7 +12,7 @@ class HomeController extends Controller
 
     public function __construct($method)
     {
-        $this->domains = new Domains;
+        $this->certificates = new Certificates;
     }
 
     /** Index page | GET: /
@@ -20,13 +20,8 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('app.pages.home');
-    }
-
-    public function load()
-    {
-        $domains = $this->domains->whereRaw('main_domain IS NULL')->get();
-        return view('app.layouts.domains', compact('domains'));
+        $certificates = $this->certificates->orderBy(['created_at' => 'DESC'])->get();
+        return view('app.pages.home', compact('certificates'));
     }
 
     /** Show page | GET: /id

@@ -17,8 +17,7 @@ class Domains
             'id'           => ['primary'],
             'main_domain'  => ['int', 'nullable'],
             'domain'       => ['varchar'],
-            'public_dir'   => ['varchar'],
-            'ftp'          => ['json'],
+            'fulldomain'   => ['varchar'],
             'cpanel'       => ['json'],
             'timestamps'
         ];

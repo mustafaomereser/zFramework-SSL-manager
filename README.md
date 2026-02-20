@@ -29,7 +29,7 @@ Paylaşımlı hostinglerde veya cPanel kullanan sunucularda, tek bir komutla kur
 - ⚙️ **PHP 8+** tam uyumlu mimari  
 - 🔐 **ACME Challenge (HTTP-01)** desteği  
 - 🌍 **Domain ekleme ve yönetimi**  
-- 📁 Domain bazlı `public_dir` tanımlama  
+- 📁 **cPanel API** ile otomatik `public_dir` tanıma
 - 🧩 **cPanel API** ile otomatik sertifika yükleme  
 - 🖥 Terminal komutlarıyla tam kontrol: `db migrate`, `run`  
 - 🪄 zFramework CLI tabanlı sade kullanım  

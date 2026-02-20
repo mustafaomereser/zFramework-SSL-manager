@@ -525,5 +525,11 @@ function init() {
     $.selectData(false);
     $.checkData(false);
     $(() => initTooltips());
+    $(':not(a)[href]').css('cursor', 'pointer').on('click', function (e) {
+        let item = $(this);
+        if ($(e.target).hasAttr('except')) return;
+        location.href = item.attr('href');
+    });
+
 }
 init();

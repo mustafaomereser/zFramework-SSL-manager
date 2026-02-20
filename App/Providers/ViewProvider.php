@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Domains;
 use App\Models\User;
 use zFramework\Core\View;
 
@@ -9,10 +10,9 @@ class ViewProvider
 {
     public function __construct()
     {
-        View::bind('test', function () {
-            $user = new User;
+        View::bind('app.main', function () {
             return [
-                'users' => $user->get()
+                'domains' => (new Domains)->whereRaw('main_domain IS NULL')->get()
             ];
         });
     }

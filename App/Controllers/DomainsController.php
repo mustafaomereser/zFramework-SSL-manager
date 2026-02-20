@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Helpers\API;
 use App\Models\Domains;
 use zFramework\Core\Abstracts\Controller;
 use zFramework\Core\Facades\Alerts;
@@ -32,7 +33,10 @@ class DomainsController extends Controller
      */
     public function show($id)
     {
-        abort(404);
+        $item            = $this->domains->where('id', $id)->firstOrFail();
+        $domain_status   = API::getSSLStatus($item['fulldomain']);
+        $item_subdomains = $item['subdomains']();
+        return view('app.pages.domains.show', compact('item', 'domain_status', 'item_subdomains'));
     }
 
     /** Create page | GET: /create
@@ -58,16 +62,18 @@ class DomainsController extends Controller
     {
         $validate = Validator::validate($_REQUEST, [
             'domain'      => ['required'],
-            'public_dir'  => ['required'],
-            'ftp'         => ['nullable'],
             'cpanel'      => ['nullable'],
             'main_domain' => ['nullable'],
         ]);
 
-        $validate['ftp']    = json_encode($validate['ftp'] ?? [], JSON_UNESCAPED_UNICODE);
+        $validate['fulldomain'] = $validate['domain'];
         $validate['cpanel'] = json_encode($validate['cpanel'] ?? [], JSON_UNESCAPED_UNICODE);
 
         if (!$validate['main_domain']) unset($validate['main_domain']);
+        else {
+            $parent = $this->domains->findOrFail($validate['main_domain']);
+            $validate['fulldomain'] = $validate['domain'] . "." . $parent['domain'];
+        }
 
         return $validate;
     }
