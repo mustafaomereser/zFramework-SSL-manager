@@ -149,7 +149,7 @@ function getErrorDetails($message, $file, $line)
 
 function errorHandler($data)
 {
-    ob_end_clean();
+    @ob_end_clean();
 
     ob_start();
     $data = array_values((array) $data);
@@ -1071,14 +1071,14 @@ function errorHandler($data)
 
                             // Error line'ı görünür alana kaydır
                             const errorLine = codeSnippets[i].querySelector('.error-line');
-                            if (errorLine) {
-                                setTimeout(function() {
-                                    errorLine.scrollIntoView({
-                                        behavior: 'smooth',
-                                        block: 'center'
-                                    });
-                                }, 100);
-                            }
+                            // if (errorLine) {
+                            //     setTimeout(function() {
+                            //         errorLine.scrollIntoView({
+                            //             behavior: 'smooth',
+                            //             block: 'center'
+                            //         });
+                            //     }, 100);
+                            // }
                         }
                     };
                 }
@@ -1108,14 +1108,14 @@ function errorHandler($data)
 
                     // Error line'ı görünür alana kaydır
                     const errorLine = codeSnippets[activeIndex].querySelector('.error-line');
-                    if (errorLine) {
-                        setTimeout(function() {
-                            errorLine.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'center'
-                            });
-                        }, 500);
-                    }
+                    // if (errorLine) {
+                    //     setTimeout(function() {
+                    //         errorLine.scrollIntoView({
+                    //             behavior: 'smooth',
+                    //             block: 'center'
+                    //         });
+                    //     }, 500);
+                    // }
                 }
 
                 // Syntax highlighting JavaScript tarafında kaldırıldı
@@ -1204,10 +1204,11 @@ function errorHandler($data)
     </html>
 
 <?php
-    $error_log = ob_get_clean();
-    if (Config::get('app.error_log')) {
-        file_put_contents2(ERROR_LOG_DIR . '/' . date('Y-m-d-H-i-s') . '.html', $error_log);
-        error_log_callback($error_log);
+    @$error_log = ob_get_clean();
+    if (Config::get('app.error.logging')) {
+        $error_log_file_name = ERROR_LOG_DIR . '/' . date('Y-m-d-H-i-s') . '.html';
+        file_put_contents2($error_log_file_name, $error_log);
+        Config::get('app.error.callback')($error_log_file_name, $error_log);
     }
 
     if (!Config::get('app.debug')) {
@@ -1216,6 +1217,7 @@ function errorHandler($data)
     }
 
     echo $error_log;
+    return $error_log;
 }
 
 set_exception_handler('errorHandler');

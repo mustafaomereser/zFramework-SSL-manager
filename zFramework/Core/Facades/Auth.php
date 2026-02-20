@@ -17,6 +17,10 @@ class Auth
      */
     static $api_mode = false;
 
+    /**
+     * Columns for match
+     */
+    static private $columns = ['email' => 'email', 'password' => 'password', 'passwordencode' => 'crypter'];
 
     private static function getMode()
     {
@@ -25,7 +29,8 @@ class Auth
 
     public static function init()
     {
-        if (!self::check() && $api_token = (self::getMode())::get('auth-stay-in')) self::attempt(['api_token' => $api_token]);
+        if ($columns = (new User)->special_columns) self::$columns = $columns;
+        if (isset($GLOBALS['databases']['connections'][(new User)->db]) && !self::check() && $api_token = (self::getMode())::get('auth-stay-in')) self::attempt(['api_token' => $api_token]);
     }
 
     /**
@@ -36,7 +41,7 @@ class Auth
     public static function login(array $user): bool
     {
         if (isset($user['id'])) {
-            (self::getMode())::set('auth-password', $user['password']);
+            (self::getMode())::set('auth-password', $user[self::$columns['password']]);
             (self::getMode())::set('auth-token', $user['id']);
             return true;
         }
@@ -51,7 +56,7 @@ class Auth
      */
     public static function token_login(string $token): bool
     {
-        return self::login((new User)->select('id, password')->where('api_token', $token)->first());
+        return self::login((new User)->select('id, ' . self::$columns['password'])->where('api_token', $token)->first());
     }
 
     /**
@@ -63,6 +68,7 @@ class Auth
         self::$user = null;
         (self::getMode())::delete('auth-stay-in');
         (self::getMode())::delete('auth-token');
+        (self::getMode())::delete('auth-password');
         return true;
     }
 
@@ -84,7 +90,7 @@ class Auth
     {
         if (!$user_id = (self::getMode())::get('auth-token')) return false;
         if (self::$user == null) self::$user = (new User)->where('id', $user_id)->first(); // ->where('api_token', 'test', 'OR')
-        if (!@self::$user['id'] || self::$user['password'] != (self::getMode())::get('auth-password')) return self::logout();
+        if (!@self::$user['id'] || self::$user[self::$columns['password']] != (self::getMode())::get('auth-password')) return self::logout();
         return self::$user;
     }
 
@@ -98,8 +104,9 @@ class Auth
     {
         if (self::check()) return false;
 
-        $user = (new User)->select(['id', 'api_token', 'password']);
-        foreach ($fields as $key => $val) $user->where($key, ($key != 'password' ? $val : Crypter::encode($val)));
+        $user = (new User)->select('id, api_token, ' . self::$columns['password']);
+        if (isset($fields[self::$columns['password']])) $fields[self::$columns['password']] = ['crypter' => fn() => Crypter::encode($fields[self::$columns['password']]), 'md5' => fn() => md5($fields[self::$columns['password']])][self::$columns['passwordencode']]();
+        foreach ($fields as $key => $value) $user->where($key, $value);
         $user = $user->first();
 
         if (@$user['id']) {
@@ -115,8 +122,8 @@ class Auth
      * Get Current logged in user's id
      * @return integer
      */
-    public static function id(): int
+    public static function id(): int|null
     {
-        return self::user()['id'];
+        return self::user()['id'] ?? null;
     }
 }

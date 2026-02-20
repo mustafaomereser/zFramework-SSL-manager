@@ -16,6 +16,6 @@ class Domains extends Model
 
     public function certificates(array $data)
     {
-        return $this->findRelation(Certificates::class, $data['id'], 'domain_id')->orderBy(['id' => 'DESC'])->get();
+        return $this->findRelation(Certificates::class, $data['domain'], 'domain')->orderBy(['id' => 'DESC'])->get();
     }
 }

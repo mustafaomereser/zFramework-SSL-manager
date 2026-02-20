@@ -15,7 +15,10 @@ class API
 
     public static function init()
     {
-        self::$autoSSL = new AutoSSL(AutoSSL::PROD, 'D:\xampp\apache\conf\openssl.cnf');
+        // self::$autoSSL = new AutoSSL(AutoSSL::PROD, '..\apache\conf\openssl.cnf');
+
+        self::$autoSSL = new AutoSSL(['staging' => AutoSSL::STAGING, 'prod' => AutoSSL::PROD][config('autossl.mode')] ?? AutoSSL::STAGING);
+
         self::$domain  = (new Domains)->where('id', Cookie::get('domain') ?? 0)->first();
 
         if (!isset(self::$domain['id'])) return;

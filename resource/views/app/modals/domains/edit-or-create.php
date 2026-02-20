@@ -59,14 +59,19 @@
     <script>
         $('[delete-account]').on('click', function() {
             let btn = this;
-            $.post('<?= route('domains.delete', ['id' => $item['id']]) ?>', {
-                _token: $('[name="_token"]').val(),
-                _method: 'DELETE'
-            }, e => {
-                if (e.status) return location.reload();
-                $.showAlerts(e.alerts);
-                $.core.btn.unset(btn);
-                $.ask.modal.modal('hide');
+
+            $.ask.do({
+                onAccept: () => {
+                    $.post('<?= route('domains.delete', ['id' => $item['id']]) ?>', {
+                        _token: $('[name="_token"]').val(),
+                        _method: 'DELETE'
+                    }, e => {
+                        if (e.status) return location.reload();
+                        $.showAlerts(e.alerts);
+                        $.core.btn.unset(btn);
+                        $.ask.modal.modal('hide');
+                    });
+                }
             });
         });
     </script>

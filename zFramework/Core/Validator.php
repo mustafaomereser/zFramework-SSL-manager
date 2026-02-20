@@ -20,7 +20,7 @@ class Validator
      * @param \Closure $callback
      * @return string|array
      */
-    public static function validate(array $data = null, array $validate = [], array $attributeNames = [], \Closure $callback = null)
+    public static function validate(?array $data = null, array $validate = [], array $attributeNames = [], ?\Closure $callback = null)
     {
         if (!$data) $data = $_REQUEST;
 
@@ -96,7 +96,7 @@ class Validator
 
     public static function email($data, $parameters, $nullable)
     {
-        if (!strlen($data['value'])) return true;
+        if (!@strlen($data['value'])) return true;
         if (filter_var($data['value'], FILTER_VALIDATE_EMAIL)) return true;
         return false;
     }
@@ -137,7 +137,7 @@ class Validator
 
     public static function exists($data, $parameters)
     {
-        $exists = (new DB(@$parameters['db']))->table($data['equivalent'])->whereRaw(($parameters['key'] ?? $data['key']) . " = :value", ['value' => $data['value']]);
+        $exists = (new $data['equivalent'])->whereRaw(($parameters['key'] ?? $data['key']) . " = :value", ['value' => $data['value']]);
         if ($ex = @$parameters['ex']) $exists->where('id', '!=', $ex);
         if ($exists->count()) return true;
         return false;
@@ -145,7 +145,7 @@ class Validator
 
     public static function unique($data, $parameters)
     {
-        $unique = (new DB(@$parameters['db']))->table($data['equivalent'])->whereRaw(($parameters['key'] ?? $data['key']) . " = :value", ['value' => $data['value']]);
+        $unique = (new $data['equivalent'])->whereRaw(($parameters['key'] ?? $data['key']) . " = :value", ['value' => $data['value']]);
         if ($ex = @$parameters['ex']) $unique->where('id', '!=', $ex);
         if ($unique->count()) return false;
         return true;

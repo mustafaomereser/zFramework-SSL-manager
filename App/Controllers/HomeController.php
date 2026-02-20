@@ -20,8 +20,13 @@ class HomeController extends Controller
      */
     public function index()
     {
+        return view('app.pages.home');
+    }
+
+    public function load()
+    {
         $domains = $this->domains->get();
-        return view('app.pages.home', compact('domains'));
+        return view('app.layouts.domains', compact('domains'));
     }
 
     /** Show page | GET: /id

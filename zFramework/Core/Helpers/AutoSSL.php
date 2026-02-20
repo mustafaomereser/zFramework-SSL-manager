@@ -13,7 +13,7 @@ class AutoSSL
     public const PROD    = 'https://acme-v02.api.letsencrypt.org/directory';
 
     private string $sslPath;
-    public string $webChallengePath;
+    private string $webChallengePath;
     private string $accountKeyPath;
     private string $directoryUrl;
     private $accountKeyRes;
@@ -23,9 +23,10 @@ class AutoSSL
 
     public function __construct(string $directoryUrl = self::STAGING, null|string $openSSLConfig = null)
     {
+        global $storage_path;
         if (!is_null($openSSLConfig)) $this->openSSLConfig['config'] = $openSSLConfig;
 
-        $this->sslPath          = FRAMEWORK_PATH . "/Caches/AutoSSL";
+        $this->sslPath          = $storage_path . "/AutoSSL";
         $this->directoryUrl     = $directoryUrl;
         $this->webChallengePath = public_dir('/.well-known/acme-challenge');
         $this->accountKeyPath   = $this->sslPath . '/account.key';
@@ -208,8 +209,8 @@ class AutoSSL
         readfile($temp_zip);
         $raw      = ob_get_clean();
         $filesize = filesize($temp_zip);
+
         unlink($temp_zip);
-        
         return ['filename' => "$domain.zip", 'filesize' => $filesize, 'raw' => $raw];
     }
 

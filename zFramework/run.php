@@ -3,6 +3,7 @@
 namespace zFramework;
 
 use zFramework\Core\Facades\Config;
+use zFramework\Core\Route;
 
 class Run
 {
@@ -42,7 +43,9 @@ class Run
     {
         if (!is_dir($path)) return new self();
         foreach (scan_dir($path) as $module) {
-            $info = include("$path/$module/info.php");
+            $info_path = "$path/$module/info.php";
+            if (!is_file($info_path)) continue;
+            $info = include($info_path);
             if ($info['status']) self::$modules[$info['sort']] = (['module' => $module, 'path' => "$path/$module"] + $info);
         }
         ksort(self::$modules);
@@ -61,21 +64,30 @@ class Run
 
     public static function begin()
     {
+        global $storage_path;
         ob_start();
         try {
             # includes
             self::includer(BASE_PATH . '/zFramework/modules', false);
             self::includer(BASE_PATH . '/zFramework/modules/error_handlers/handle.php');
-            self::includer(BASE_PATH . '/App/Middlewares/autoload.php');
-            self::initProviders()::findModules(base_path('/modules'))::loadModules();
-            self::includer(BASE_PATH . '/route');
 
             # set view options
             \zFramework\Core\View::setSettings([
-                'caches'  => FRAMEWORK_PATH . '/storage/views',
+                'caches'  => "$storage_path/views",
                 'dir'     => BASE_PATH . '/resource/views',
                 'suffix'  => ''
             ] + Config::get('view'));
+            #
+
+            self::includer(BASE_PATH . '/App/Middlewares/autoload.php');
+            self::initProviders()::findModules(base_path('/modules'))::loadModules();
+
+            // if (!file_exists("$storage_path/routes.cache.php")) {
+            self::includer(BASE_PATH . '/route');
+            //     if (\zFramework\Core\Route::$caching) file_put_contents("$storage_path/routes.cache.php", "<?php return " . var_export(Route::$routes, true) . ";");
+            // } else {
+            //     Route::$routes = include("$storage_path/routes.cache.php");
+            // }
 
             \zFramework\Core\Route::run();
             \zFramework\Core\Facades\Alerts::unset(); # forgot alerts

@@ -358,6 +358,61 @@ $.core = {
     addZero: text => text.toString().length == 1 ? `0${text}` : text
 };
 
+
+$.ask = {
+    modal: $('#ask-modal'),
+    hide: () => $.ask.modal.modal('hide'),
+    do: parse_data => {
+        let data = {
+            title: 'Bu işlemi yapmak istediğinize emin misiniz?',
+            text: 'Bu işlemi yaptığınız taktirde bir daha geri alamazsınız, bu işleme devam etmek istiyor musunuz?',
+
+            accept: 'Evet',
+            decline: 'Hayır',
+
+            onAccept: () => { },
+            onDecline: () => { }
+        };
+
+        if (parse_data)
+            for (let index of Object.keys(parse_data)) data[index] = parse_data[index];
+
+        $.ask.modal.attr('tabindex', modal_count);
+
+        $.ask.modal.find('[accept-btn], [decline-btn]').addClass('hidden');
+
+        //
+        $.ask.modal.find('.modal-title').html(data.title);
+        $.ask.modal.find('.modal-body').html(data.text);
+
+        if (data.accept.length) $.ask.modal.find('[accept-btn]').html(data.accept).removeClass('hidden').off('click').on('click', function () {
+            $.core.btn.spin(this);
+        }).on('click', data.onAccept);
+
+        if (data.decline.length) $.ask.modal.find('[decline-btn]').html(data.decline).removeClass('hidden').off('click').on('click', function () {
+            $.core.btn.spin(this);
+        }).on('click', data.onDecline);
+        //
+
+        $.ask.modal.modal('show');
+
+        $.ask.modal.off('hidden.bs.modal').on('hidden.bs.modal', () => {
+            $.ask.modal.find('.modal-dialog').removeAttr('style').attr('class', 'modal-dialog');
+            $.ask.modal.find('.modal-title').html(null);
+            $.ask.modal.find('.modal-body').html(null);
+            $.core.btn.unset($.ask.modal.find('[accept-btn]').html(null).off('click'));
+            $.core.btn.unset($.ask.modal.find('[decline-btn]').html(null).off('click'));
+        });
+
+        // z-index ayarları
+        let backdrop = $([...$('.modal-backdrop')].pop());
+        $.ask.modal.css('--vz-modal-zindex', 2094 + modal_count);
+        backdrop.css('--vz-backdrop-zindex', 2093 + modal_count)
+        //
+        modal_count++;
+    }
+};
+
 //
 let modals = $('#load-modals'), modal_status = 0;
 var currentModal;

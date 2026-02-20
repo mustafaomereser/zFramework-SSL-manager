@@ -3,6 +3,8 @@
 namespace zFramework\Core\Facades;
 
 use ReflectionClass;
+use zFramework\Core\Facades\Analyzer\DbCollector;
+use zFramework\Core\Helpers\Date;
 use zFramework\Core\Traits\DB\OrMethods;
 use zFramework\Core\Traits\DB\RelationShips;
 
@@ -19,7 +21,8 @@ class DB
     private $builder;
     private $sqlDebug  = false;
     private $wherePrev = 'AND';
-    public $cache_dir  = FRAMEWORK_PATH . "/Caches/DB";
+    public $ignoreAnalyze = false;
+    public $cache_dir;
 
     /**
      * Options parameters
@@ -34,25 +37,27 @@ class DB
     /**
      * Initial, Select Database.
      * @param ?string @db
-     * @return mixed
      */
     public function __construct(?string $db = null)
     {
-        if ($db && isset($GLOBALS['databases']['connections'][$db])) $this->db = $db;
-        else $this->db = array_keys($GLOBALS['databases']['connections'])[0];
+        global $storage_path;
+        $this->cache_dir = $storage_path . "/db";
 
-        $this->db();
+        if (!$db) $db = array_keys($GLOBALS['databases']['connections'])[0] ?? null;
+        if (isset($GLOBALS['databases']['connections'][$db])) $this->db = $db;
+
+        $this->connection();
         $this->reset();
     }
 
     /**
      * Create database connection or return already current connection.
-     * @return object
+     * @return object|bool
      */
-    public function db()
+    public function connection(): object|bool
     {
         if ($this->connection !== null) return $this->connection;
-        if (!isset($GLOBALS['databases']['connections'][$this->db])) die('Böyle bir veritabanı yok!');
+        if ($this->table && !isset($GLOBALS['databases']['connections'][$this->db])) return false;
         if (!isset($GLOBALS['databases']['connected'][$this->db])) {
             try {
                 $parameters = $GLOBALS['databases']['connections'][$this->db];
@@ -82,10 +87,14 @@ class DB
      * @param array $data
      * @return object
      */
-    public function prepare(string $sql, array $data = [])
+    public function prepare(string $sql, array $data = []): object
     {
-        $e = $this->db()->prepare($sql);
-        $e->execute(count($data) ? $data : $this->buildQuery['data'] ?? []);
+        $data = count($data) ? $data : $this->buildQuery['data'] ?? [];
+        $queryTime = microtime(true);
+        $e = $this->connection()->prepare($sql);
+        $e->execute($data);
+        $queryTime = microtime(true) - $queryTime;
+        if (!$this->ignoreAnalyze && config('app.analyze')) DbCollector::analyze($this, $sql, $data, $queryTime);
         $this->reset();
         return $e;
     }
@@ -95,8 +104,9 @@ class DB
      * @param string $table
      * @return self
      */
-    public function table(string $table)
+    public function table(string $table): self
     {
+        if (!in_array($table, array_keys($this->tables()['TABLE_COLUMNS'] ?? []))) throw new \Exception("`$table` is not there in database.", 1001);
         $this->table         = $table;
         $this->originalTable = $table;
         return $this;
@@ -104,9 +114,9 @@ class DB
 
     /**
      * Set all tables informations in database.
-     * @return void
+     * @return array
      */
-    private function tables(): void
+    private function tables(): array
     {
         $data = json_decode(@file_get_contents($this->cache_dir . "/" . $this->dbname . "/scheme.json"), true) ?? false;
         if (!$data) {
@@ -114,13 +124,14 @@ class DB
             file_put_contents2($this->cache_dir . "/" . $this->dbname . "/scheme.json", json_encode($data, JSON_UNESCAPED_UNICODE));
         }
         $GLOBALS['DB'][$this->dbname] = $data;
+        return $data;
     }
 
     /**
      * Get primary key.
-     * @return string
+     * @return string|null
      */
-    private function getPrimary()
+    private function getPrimary(): string|null
     {
         if (!$this->table) throw new \Exception('firstly you must select a table for get primary key.');
         return $this->primary ?? @$GLOBALS["DB"][$this->dbname]["TABLE_COLUMNS"][$this->table]['primary'] ?? null;
@@ -132,7 +143,7 @@ class DB
      * Get table columns
      * @return array
      */
-    public function columns()
+    public function columns(): array
     {
         $columns = array_column($GLOBALS["DB"][$this->dbname]["TABLE_COLUMNS"][$this->table]['columns'], 'COLUMN_NAME');
         if (count($this->guard ?? [])) $columns = array_diff($columns, $this->guard);
@@ -143,7 +154,7 @@ class DB
      * Get table column's lengths 
      * @return array
      */
-    public function columnsLength()
+    public function columnsLength(): array
     {
         $columns = [];
         foreach ($GLOBALS["DB"][$this->dbname]["TABLE_COLUMNS"][$this->table]['columns'] as $column) $columns[$column['COLUMN_NAME']] = $column['CHARACTER_MAXIMUM_LENGTH'] ?? 65535;
@@ -155,7 +166,7 @@ class DB
      * @param array $data
      * @return array
      */
-    public function compareColumnsLength(array $data)
+    public function compareColumnsLength(array $data): array
     {
         $errors    = [];
         $lengthies = $this->columnsLength();
@@ -181,7 +192,7 @@ class DB
      * @param array $args
      * @return mixed
      */
-    private function trigger(string $name, array $args = [])
+    private function trigger(string $name, array $args = []): mixed
     {
         if (!isset($this->observe)) return false;
         return call_user_func_array([new ($this->observe), 'router'], [$name, $args]);
@@ -191,19 +202,19 @@ class DB
      * Reset build.
      * @return self
      */
-    private function resetBuild()
+    private function resetBuild(): self
     {
         $this->cache['buildQuery'] = $this->buildQuery;
         $this->buildQuery = [
-            'select'    => [],
-            'join'      => [],
-            'where'     => [],
-            'orderBy'   => [],
-            'groupBy'   => [],
-            'limit'     => [],
-            'having'    => [],
-            'sets'      => "",
-            'fetchType' => \PDO::FETCH_ASSOC
+            'select'       => [],
+            'join'         => [],
+            'where'        => [],
+            'orderBy'      => [],
+            'groupBy'      => [],
+            'limit'        => [],
+            'having'       => [],
+            'sets'         => "",
+            'fetchType'    => \PDO::FETCH_ASSOC
         ];
         return $this;
     }
@@ -212,9 +223,9 @@ class DB
      * Model's relatives.
      * @return self
      */
-    private function closures()
+    private function closures(): self
     {
-        if (isset($GLOBALS['model-closures'][$this->db][$this->table])) return $this;
+        if (!$this->table || isset($GLOBALS['model-closures'][$this->db][$this->table])) return $this;
 
         $closures = [];
         foreach ((new ReflectionClass($this))->getMethods() as $closure) if (strstr($closure->class, 'Models') && !in_array($closure->name, $this->not_closures)) $closures[] = $closure->name;
@@ -226,7 +237,7 @@ class DB
      * Add Closure on/off.
      * @return self
      */
-    public function closureMode(bool $mode = true)
+    public function closureMode(bool $mode = true): self
     {
         $this->setClosures = $mode;
         return $this;
@@ -255,7 +266,7 @@ class DB
      * @param null|string $type
      * @return self
      */
-    public function fetchType(null|string $type = null)
+    public function fetchType(null|string $type = null): self
     {
         $this->buildQuery['fetchType'] = ['unique' => \PDO::FETCH_UNIQUE, 'lazy' => \PDO::FETCH_LAZY, 'keypair' => \PDO::FETCH_KEY_PAIR][$type] ?? \PDO::FETCH_ASSOC;
         return $this;
@@ -264,7 +275,7 @@ class DB
     /**
      * Begin query for models.
      * this is empty
-     * @return $this
+     * @return mixed
      */
     public function beginQuery()
     {
@@ -275,7 +286,7 @@ class DB
      * Reset all data.
      * @return self
      */
-    public function reset()
+    public function reset(): self
     {
         $this->resetBuild();
         $this->closures();
@@ -287,11 +298,14 @@ class DB
      * Emre UZUN was here.
      * Added hash for unique key.
      * @param string $key
+     * @param null|int $level
      * @return string
      */
-    public function hashedKey(string $key): string
+    public function hashedKey(string $key, null|int $level = null): string
     {
-        return uniqid(str_replace(".", "_", $key) . "_");
+        $key = str_replace([".", '(', ')', ',', '"', "'", '`', ' '], "_", $key) . ($level ?: null);
+        if (isset($this->buildQuery['data'][$key])) return $this->hashedKey($key, $level + 1);
+        return $key;
     }
     #endregion
 
@@ -301,7 +315,7 @@ class DB
      * @param array|string $select
      * @return self
      */
-    public function select($select)
+    public function select($select): self
     {
         $this->buildQuery['select'] = $select;
         return $this;
@@ -314,7 +328,7 @@ class DB
      * @param string $on
      * @return self
      */
-    public function join(string $type, string $model, string $on = "")
+    public function join(string $type, string $model, string $on = ""): self
     {
         $this->buildQuery['join'][] = [$type, $model, $on];
         return $this;
@@ -324,7 +338,7 @@ class DB
      * add a "AND" where
      * @return self
      */
-    public function where()
+    public function where(): self
     {
         $this->wherePrev = 'AND';
         return self::addWhere(func_get_args());
@@ -334,7 +348,7 @@ class DB
      * add a "OR" where
      * @return self
      */
-    public function whereOr()
+    public function whereOr(): self
     {
         $this->wherePrev = 'OR';
         return self::addWhere(func_get_args());
@@ -345,7 +359,7 @@ class DB
      * @param array $parameters
      * @return self
      */
-    private function addWhere(array $parameters)
+    private function addWhere(array $parameters): self
     {
         if (gettype($parameters[0]) == 'array') {
             $type    = 'group';
@@ -381,19 +395,38 @@ class DB
     }
 
     /**
+     * Append data to buildQuery.
+     * @param string $key
+     * @param mixed $value
+     */
+    private function appendData(string $key, mixed $value): void
+    {
+        switch (gettype($value)) {
+            case 'object':
+                $value = json_encode((array) $value, JSON_UNESCAPED_UNICODE);
+                break;
+            case 'array':
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+                break;
+        }
+
+        $this->buildQuery['data'][$key] = $value;
+    }
+
+    /**
      * Where In sql build.
      * @param string $column
      * @param array $in
      * @param string $prev
      * @return self
      */
-    public function whereIn(string $column, array $in = [], string $prev = "AND")
+    public function whereIn(string $column, array $in = [], string $prev = "AND"): self
     {
         $hashed_keys = [];
-        foreach ($in as $val) {
+        foreach ($in as $value) {
             $hashed_key    = $this->hashedKey($column);
             $hashed_keys[] = $hashed_key;
-            $this->buildQuery['data'][$hashed_key] = $val;
+            $this->appendData($hashed_key, $value);
         }
 
         $this->buildQuery['where'][] = [
@@ -419,13 +452,13 @@ class DB
      * @param string $prev
      * @return self
      */
-    public function whereNotIn(string $column, array $in = [], string $prev = "AND")
+    public function whereNotIn(string $column, array $in = [], string $prev = "AND"): self
     {
         $hashed_keys = [];
-        foreach ($in as $val) {
+        foreach ($in as $value) {
             $hashed_key    = $this->hashedKey($column);
             $hashed_keys[] = $hashed_key;
-            $this->buildQuery['data'][$hashed_key] = $val;
+            $this->appendData($hashed_key, $value);
         }
 
         $this->buildQuery['where'][] = [
@@ -452,7 +485,7 @@ class DB
      * @param string $prev
      * @return self
      */
-    public function whereBetween(string $column, $start, $stop, string $prev = 'AND')
+    public function whereBetween(string $column, $start, $stop, string $prev = 'AND'): self
     {
         $uniqid = uniqid();
 
@@ -483,7 +516,7 @@ class DB
      * @param string $prev
      * @return self
      */
-    public function whereNotBetween(string $column, $start, $stop, string $prev = 'AND')
+    public function whereNotBetween(string $column, $start, $stop, string $prev = 'AND'): self
     {
         return $this->whereBetween("$column NOT", $start, $stop, $prev);
     }
@@ -495,7 +528,7 @@ class DB
      * @param string $prev
      * @return self
      */
-    public function whereRaw(string $sql, array $data = [], string $prev = "AND")
+    public function whereRaw(string $sql, array $data = [], string $prev = "AND"): self
     {
         $this->buildQuery['where'][] = [
             'type'     => 'row',
@@ -509,7 +542,8 @@ class DB
                 ]
             ]
         ];
-        foreach ($data as $key => $val) $this->buildQuery['data'][$key] = $val;
+
+        foreach ($data as $key => $value) $this->appendData($key, $value);
 
         return $this;
     }
@@ -517,8 +551,9 @@ class DB
     /**
      * Prepare where
      * @param array $data
+     * @return array
      */
-    private function prepareWhere(array $data)
+    private function prepareWhere(array $data): array
     {
         $key      = $data[0];
         $prev     = $this->wherePrev;
@@ -537,12 +572,17 @@ class DB
         return compact('key', 'operator', 'value', 'prev');
     }
 
+    public function having($column, $operator, $value, $prev)
+    {
+        $this->buildQuery['having'][] = [];
+    }
+
     /**
      * Set Order By
      * @param array $data
      * @return self
      */
-    public function orderBy(array $data = [])
+    public function orderBy(array $data = []): self
     {
         $this->buildQuery['orderBy'] = $data;
         return $this;
@@ -553,7 +593,7 @@ class DB
      * @param array $data
      * @return self
      */
-    public function groupBy(array $data = [])
+    public function groupBy(array $data = []): self
     {
         $this->buildQuery['groupBy'] = $data;
         return $this;
@@ -565,7 +605,7 @@ class DB
      * @param mixed $getCount
      * @return self
      */
-    public function limit(int $startPoint = 0, $getCount = null)
+    public function limit(int $startPoint = 0, $getCount = null): self
     {
         $this->buildQuery['limit'] = [$startPoint, $getCount];
         return $this;
@@ -579,7 +619,7 @@ class DB
      * get rows with query string
      * @return array
      */
-    public function get()
+    public function get(): array
     {
         $rows = $this->run()->fetchAll($this->buildQuery['fetchType']);
         if ($this->setClosures) $rows = $this->setClosures($rows);
@@ -599,7 +639,7 @@ class DB
      * get one row in rows
      * @return array 
      */
-    public function first()
+    public function first(): array
     {
         return $this->limit(1)->get()[0] ?? [];
     }
@@ -609,22 +649,93 @@ class DB
      * @param string $value
      * @return array 
      */
-    public function find(string $value)
+    public function find(string $value): array
     {
         return $this->where($this->getPrimary(), $value)->first();
     }
 
     /**
+     * Find or fail row by primary key
+     * @param string $value
+     * @return array 
+     */
+    public function findOrFail(string $value): array
+    {
+        return $this->where($this->getPrimary(), $value)->firstOrFail();
+    }
+
+    /**
+     * Seek
+     * @param array $lastrow
+     * @return bool
+     */
+    protected function seek(?array $lastrow = null): bool
+    {
+        if (!$lastrow) return false;
+
+        $orderBy = count($this->buildQuery['orderBy'])
+            ? $this->buildQuery['orderBy']
+            : [$this->getPrimary() => 'ASC'];
+
+        $conditions  = [];
+        $data        = [];
+        $prevColumns = [];
+
+        foreach ($orderBy as $column => $dir) {
+            $hashed_key = $this->hashedKey($column);
+            $param      = strtoupper($dir) === 'DESC' ? '<' : '>';
+
+            // Lexicographical
+            $lexConditions = [];
+            foreach ($prevColumns as $prev) {
+                $lexConditions[] = "$prev = :$prev";
+                $data[$prev]     = $lastrow[$prev];
+            }
+
+            $lexConditions[]   = "$column $param :$hashed_key";
+            $data[$hashed_key] = $lastrow[$column];
+
+            $conditions[]  = '(' . implode(' AND ', $lexConditions) . ')';
+            $prevColumns[] = $hashed_key;
+        }
+
+        $seekWhere = implode(' OR ', $conditions);
+
+        $this->whereRaw($seekWhere, $data);
+
+        return true;
+    }
+
+
+    /**
      * paginate
-     * @param int $per_count
-     * @param string $page_name
+     * @param int $per_page
+     * @param string $page_id
      * @return array
      */
-    public function paginate(int $per_page = 20, string $page_id = 'page')
+    public function paginate(int $per_page = 20, string $page_id = 'page', null|string $cache_id = null): array
     {
-        $last_query       = $this->buildQuery;
-        $row_count        = $this->select("COUNT($this->table." . $this->getPrimary() . ") count")->first()['count'];
-        $this->buildQuery = $last_query;
+        if (!$cache_id) {
+            Session::callback(function () {
+                unset($_SESSION[$this->db][$this->dbname]['paginate']['cache']);
+            });
+
+            $cache = Session::callback(fn() => $_SESSION[$this->db][$this->dbname]['paginate']['cache'][$cache_id] ?? false);
+            if ($cache) $row_count = $cache;
+        }
+
+        if (!isset($row_count)) {
+            $snapshot = $this->buildQuery;
+
+            # get row count
+            $this->buildQuery['orderBy'] = [];
+            $this->buildQuery['groupBy'] = [];
+            $row_count = $this->select("COUNT(" . (!empty($this->buildQuery['join']) ? 'DISTINCT ' : NULL) . "{$this->table}.{$this->getPrimary()}) as count")->first()['count'];
+            #
+
+            $this->buildQuery = $snapshot;
+            if ($cache_id) Session::callback(fn() => $_SESSION[$this->db][$this->dbname]['paginate']['cache'][$cache_id] = $row_count);
+        }
 
         $uniqueID         = uniqid();
         $current_page     = (request($page_id) ?? 1);
@@ -636,12 +747,18 @@ class DB
         $start_count = ($per_page * ($current_page - 1));
         if (!$row_count) $start_count = -1;
 
-        parse_str(@$_SERVER['QUERY_STRING'], $queryString);
+        @parse_str(@$_SERVER['QUERY_STRING'], $queryString);
         $queryString[$page_id] = "change_page_$uniqueID";
         $url = "?" . http_build_query($queryString);
 
+        # seek test.
+        // $items = !$this->seek(Session::get('last-item-test')) ? self::limit($start_count, $per_page)->get() : self::limit($per_page)->get();
+        // Session::set('last-item-test', @end(json_decode(json_encode($items, JSON_UNESCAPED_UNICODE), true)));
+        #
+
+        $items = self::limit(!($start_count < 0) ? $start_count : 0, $per_page)->get();
         return [
-            'items'          => $row_count ? self::limit($start_count, $per_page)->get() : [],
+            'items'          => $row_count ? $items : [],
             'item_count'     => $row_count,
             'shown'          => ($start_count + 1) . " / " . (($per_page * $current_page) >= $row_count ? $row_count : ($per_page * $current_page)),
             'start'          => ($start_count + 1),
@@ -654,14 +771,12 @@ class DB
                 if (!$view) $view = config('app.pagination.default-view');
 
                 $pages = [];
-                for ($x = 1; $x <= $page_count; $x++) {
-                    $pages[$x] = [
-                        'type'    => 'page',
-                        'page'    => $x,
-                        'current' => $x == $current_page,
-                        'url'     => str_replace("change_page_$uniqueID", $x, $url)
-                    ];
-                }
+                for ($x = 1; $x <= $page_count; $x++) $pages[$x] = [
+                    'type'    => 'page',
+                    'page'    => $x,
+                    'current' => $x == $current_page,
+                    'url'     => str_replace("change_page_$uniqueID", $x, $url)
+                ];
 
                 return view($view, compact('pages', 'page_count', 'current_page', 'url', 'uniqueID'));
             }
@@ -671,9 +786,9 @@ class DB
     /**
      * Insert a row to database
      * @param array $sets
-     * @return self
+     * @return array|int
      */
-    public function insert(array $sets = [])
+    public function insert(array $sets = [], bool $just_insert = false): array|int
     {
         $this->resetBuild();
 
@@ -683,13 +798,13 @@ class DB
         foreach ($sets as $key => $value) {
             $hashed_key    = $this->hashedKey($key);
             $hashed_keys[] = $hashed_key;
-            $this->buildQuery['data'][$hashed_key] = $value;
+            $this->appendData($hashed_key, $value);
         }
 
         $this->buildQuery['sets'] = " (" . implode(', ', array_keys($sets)) . ") VALUES (:" . implode(', :', $hashed_keys) . ") ";
         $insert = $this->run(__FUNCTION__)->rowCount();
-        if ($insert && $primary = $this->getPrimary()) {
-            $inserted_row = $this->resetBuild()->where($primary, $this->db()->lastInsertId())->first() ?? [];
+        if (!$just_insert && $insert && $primary = $this->getPrimary()) {
+            $inserted_row = $this->resetBuild()->where($primary, $this->connection()->lastInsertId())->first() ?? [];
             $this->trigger('inserted', $inserted_row);
         }
 
@@ -699,9 +814,9 @@ class DB
     /**
      * Update row(s) in database
      * @param array $sets
-     * @return self
+     * @return int
      */
-    public function update(array $sets = [])
+    public function update(array $sets = []): int
     {
         $this->buildQuery['sets'] = " SET ";
 
@@ -709,7 +824,7 @@ class DB
 
         foreach ($sets as $key => $value) {
             $hashed_key = $this->hashedKey($key);
-            $this->buildQuery['data'][$hashed_key] = $value;
+            $this->appendData($hashed_key, $value);
             $this->buildQuery['sets'] .= "$key = :$hashed_key, ";
         }
 
@@ -722,15 +837,19 @@ class DB
 
     /**
      * Delete row(s) in database
-     * @return self
+     * @return int
      */
-    public function delete()
+    public function delete(): int
     {
         $this->trigger('delete');
-        if (!isset($this->softDelete)) $delete = $this->run(__FUNCTION__)->rowCount();
-        else $delete = $this->update([$this->deleted_at => date('Y-m-d H:i:s')]);
-        $this->trigger('deleted');
 
+        if (!isset($this->softDelete)) $delete = $this->run(__FUNCTION__)->rowCount();
+        else $delete = $this->update([$this->deleted_at => [
+            'date' => Date::timestamp(),
+            'bool' => 0
+        ][$this->deleted_at_type]]);
+
+        $this->trigger('deleted');
         return $delete;
     }
     #endregion
@@ -742,10 +861,24 @@ class DB
      * @param bool $mode
      * @return self
      */
-    public function sqlDebug(bool $mode)
+    public function sqlDebug(bool $mode): self
     {
         $this->sqlDebug = $mode;
         return $this;
+    }
+
+    /**
+     * Create debug sql
+     * @param string $sql
+     * @param array $data
+     * @return string
+     */
+    public function debugSQL(string $sql, array $data = []): string
+    {
+        $data      = count($data) ? $data : $this->buildQuery['data'] ?? [];
+        $debug_sql = $sql;
+        foreach ($this->buildQuery['data'] ?? [] as $key => $value) $debug_sql = str_replace(":$key", !$value ? 'null' : $this->connection()->quote($value), $debug_sql);
+        return $debug_sql;
     }
 
     /**
@@ -759,11 +892,21 @@ class DB
         $sql = $this->builder->build($type);
 
         if ($this->sqlDebug) {
-            $debug_sql = $sql;
-            foreach ($this->buildQuery['data'] ?? [] as $key => $value) $debug_sql = str_replace(":$key", $this->db()->quote($value), $debug_sql);
-            echo "#Begin SQL Query:\n";
+            $debug_sql   = $this->debugSQL($sql);
+            $fingerprint = DbCollector::fingerprint($debug_sql);
+            ob_start();
+            echo "# $fingerprint " . $this->dbname . " Begin SQL Query:\n";
             var_dump($debug_sql);
-            echo "#End of SQL Query\n";
+            echo "\nAnalyze query: ";
+            try {
+                var_dump($this->connection()->query("EXPLAIN ANALYZE $debug_sql")->fetchAll(\PDO::FETCH_ASSOC));
+            } catch (\Throwable $e) {
+                echo "*UNSUPPORTED EXPLAIN ANALYZE*";
+            }
+
+            echo "\n#End of SQL Query\n";
+            $debug = ob_get_clean();
+            file_put_contents2(base_path("/db-debug/" . time()), $debug, FILE_APPEND);
         }
 
         return $sql;
@@ -774,7 +917,7 @@ class DB
      * @param string $type
      * @return mixed
      */
-    public function run(string $type = 'select')
+    public function run(string $type = 'select'): mixed
     {
         return $this->prepare($this->buildSQL($type));
     }
@@ -786,7 +929,7 @@ class DB
      * Check table is using InnoDB engine.
      * @return bool
      */
-    private function checkisInnoDB()
+    private function checkisInnoDB(): bool
     {
         if (empty($this->table)) throw new \Exception('This table is not defined.');
         if ($GLOBALS["DB"][$this->dbname]["TABLE_ENGINES"][$this->table] == 'InnoDB') return true;
@@ -795,29 +938,32 @@ class DB
 
     /**
      * Begin transaction.
+     * @return self
      */
-    public function beginTransaction()
+    public function beginTransaction(): self
     {
         $this->checkisInnoDB();
-        $this->db()->beginTransaction();
+        $this->connection()->beginTransaction();
         return $this;
     }
 
     /**
      * Rollback changes.
+     * @return self
      */
-    public function rollback()
+    public function rollback(): self
     {
-        $this->db()->rollBack();
+        $this->connection()->rollBack();
         return $this;
     }
 
     /**
      * Save all changes.
+     * @return self
      */
-    public function commit()
+    public function commit(): self
     {
-        $this->db()->commit();
+        $this->connection()->commit();
         return $this;
     }
     #endregion

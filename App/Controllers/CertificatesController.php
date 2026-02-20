@@ -7,7 +7,7 @@ use App\Models\Certificates;
 use zFramework\Core\Abstracts\Controller;
 use zFramework\Core\Facades\Alerts;
 use zFramework\Core\Facades\Response;
-use zFramework\Core\Helpers\cPanel\File;
+use zFramework\Core\Helpers\cPanel\Fileman;
 use zFramework\Core\Helpers\cPanel\SSL;
 use ZipArchive;
 
@@ -45,12 +45,8 @@ class CertificatesController extends Controller
         $order     = API::$autoSSL->newOrder(API::$prepareDomain['domain']);
         $challenge = API::$autoSSL->challenge($order['body']['challenges']);
 
-        // $challengeFile = API::$autoSSL->webChallengePath . '/' . $challenge['token'];
-        // if (file_put_contents($challengeFile, $challenge['key']) === false) throw new \Exception("Cannot write challenge file");
-        // chmod($challengeFile, 0644);
-
         $this->certificates->insert([
-            'domain_id'      => API::$domain['id'],
+            'domain'         => API::$domain['domain'],
             'order_data'     => json_encode($order, JSON_UNESCAPED_UNICODE),
             'challenge_data' => json_encode($challenge, JSON_UNESCAPED_UNICODE),
         ]);
@@ -72,7 +68,7 @@ class CertificatesController extends Controller
         $meta    = stream_get_meta_data($tmp);
         $tmpPath = $meta['uri'];
 
-        $upload  = File::upload($dir, [
+        $upload  = Fileman::upload($dir, [
             $challenge['token'] => ['path' => $tmpPath, 'mime' => 'text/plain']
         ]);
 
@@ -98,7 +94,7 @@ class CertificatesController extends Controller
 
             $certificate['update']([
                 'order_data'     => json_encode($order, JSON_UNESCAPED_UNICODE),
-                'challenge_data' => json_encode($challenge, JSON_UNESCAPED_UNICODE),
+                'challenge_data' => $challenge,
             ]);
 
             Alerts::danger($challengeAuth['message']);
@@ -152,7 +148,13 @@ class CertificatesController extends Controller
     public function install($id)
     {
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
-        print_r(SSL::install(API::$domain['domain'], $certificate['cert'], $certificate['private'], $certificate['ca_bundle']));
+        $result      = SSL::install(API::$domain['domain'], $certificate['cert'], $certificate['private'], $certificate['ca_bundle']);
+        if ($result['status']) $certificate['update']([
+            'install_ssl_data' => json_encode($result, JSON_UNESCAPED_UNICODE)
+        ]);
+        echo "<pre>";
+        print_r($result);
+        echo "</pre>";
     }
 
 
@@ -188,6 +190,8 @@ class CertificatesController extends Controller
      */
     public function delete($id)
     {
-        abort(404);
+        $this->certificates->where('id', $id)->delete();
+        Alerts::success('Cert deleted.');
+        return Response::json(['status' => 1]);
     }
 }

@@ -56,8 +56,8 @@ class mysql
     {
         $output = "";
         foreach ($this->parent->buildQuery['join'] as $join) {
-            $model = new $join[1]();
-            $output .= " " . $join[0] . " JOIN $model->table ON " . $join[2] . " ";
+            $table = class_exists($join[1]) ? (new $join[1])->table : $join[1];
+            $output .= " " . $join[0] . " JOIN $table ON " . $join[2] . " ";
         }
         return $output;
     }
@@ -91,11 +91,12 @@ class mysql
             'type'     => 'row',
             'queries'  => [
                 [
-                    'key'      => $this->parent->deleted_at,
-                    'operator' => 'IS NULL',
-                    'value'    => null,
+                    'key'      => $this->parent->table . '.' . $this->parent->deleted_at,
                     'prev'     => "AND"
-                ]
+                ] + [
+                    'date' => ['operator' => 'IS NULL', 'value' => null],
+                    'bool' => ['operator' => '=', 'value' => 1]
+                ][$this->parent->deleted_at_type]
             ]
         ];
 

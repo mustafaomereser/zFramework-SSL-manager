@@ -65,6 +65,12 @@ function file_put_contents2($file_name, $content, $flags = 0)
 }
 
 
+// Refresh page.
+function refresh()
+{
+    die(header("Refresh:0"));
+}
+
 // Redirect to url what are you want.
 function redirect($url = "/")
 {
@@ -242,8 +248,7 @@ function getBrowser()
 
     // finally get the correct version number
     $known   = array('Version', $ub, 'other');
-    $pattern = '#(?<browser>' . join('|', $known) .
-        ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
+    $pattern = '#(?<browser>' . join('|', $known) . ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
     preg_match_all($pattern, $u_agent, $matches);
 
     $i = count($matches['browser']);
@@ -264,16 +269,31 @@ function getBrowser()
     ];
 }
 
-// for Easy call models
-function model($model)
-{
-    return new $model;
-}
-
 // scan dir remove dots.
 function scan_dir($dir)
 {
     return array_values(array_diff(scandir($dir), ['.', '..']));
+}
+
+function rrmdir($dir)
+{
+    if (!is_dir($dir)) return;
+
+    $delete = 0;
+
+    $objects = scan_dir($dir);
+    foreach ($objects as $object) {
+        $path = $dir . DIRECTORY_SEPARATOR . $object;
+        if (is_dir($path)) $delete += rrmdir($path);
+        else {
+            unlink($path);
+            $delete++;
+        }
+    }
+
+    rmdir($dir);
+
+    return $delete;
 }
 
 // seconds to hours.

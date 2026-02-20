@@ -7,3 +7,4 @@ zFramework/storage
 zFramework/vendor
 zFramework/Caches
 config/crypt.php
+.DS_Store

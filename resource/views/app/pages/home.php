@@ -1,14 +1,29 @@
 @extends('app.main')
 
 @section('body')
-<?php
-
-use App\Helpers\API;
-use zFramework\Core\Facades\Cookie;
-?>
 <div class="row">
     <div class="col-3">
-        <div class="card">
+        <div class="card mb-2">
+            <div class="card-header">
+                Acme Account
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <div class="fw-bold">Modes</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a class="btn btn-sm btn-secondary flex-fill" data-mode="staging" href="<?= route('switch', ['mode' => 'staging']) ?>" class="text-warning">Stage</a>
+                        <a class="btn btn-sm btn-secondary flex-fill" data-mode="prod" href="<?= route('switch', ['mode' => 'prod']) ?>" class="text-success">PROD</a>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="fw-bold">Account ID<button class="btn btn-sm btn-warning text-dark ms-2" onclick="location.href = $('[data-mode].btn-primary').attr('href')">renew</button></div>
+                    <div><?= App\Helpers\API::$autoSSL->ensureAccount() ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-2">
             <div class="card-header">
                 <div class="clerfix">
                     <div class="float-start">
@@ -21,27 +36,7 @@ use zFramework\Core\Facades\Cookie;
             </div>
             <div class="card-body">
                 <div domains>
-                    <?php foreach ($domains as $domain):
-                        $checkSSL = null;
-                        try {
-                            error_reporting(0);
-                            $checkSSL = API::$autoSSL->checkSSL($domain['domain']);
-                        } catch (\Throwable $e) {
-                            error_reporting(E_ALL);
-                        }
-                    ?>
-                        <div class="card mb-2 border-2" data-domain-key="<?= $domain['id'] ?>">
-                            <div class="card-body p-2">
-                                <a data-modal="<?= route('domains.edit', ['id' => $domain['id']]) ?>" class="text-warning float-end"><i class="fa fa-pencil"></i></a>
-                                <div><?= $domain['domain'] ?></div>
-                                <?php if ($checkSSL): ?>
-                                    <small class="text-muted"><?= \zFramework\Core\Helpers\Date::format($checkSSL['last_date'], 'd.m.Y H:i:s') ?> last date. <?= $checkSSL['days_left'] ?> days left.</small>
-                                <?php else: ?>
-                                    <small class="text-danger">no SSL.</small>
-                                <?php endif ?>
-                            </div>
-                        </div>
-                    <?php endforeach ?>
+                    <i class="fa fa-spinner fa-spin me-2"></i> loading
                 </div>
             </div>
         </div>
@@ -64,6 +59,13 @@ use zFramework\Core\Facades\Cookie;
 
 @section('footer')
 <script>
+    function loadDomains() {
+        $('[domains]').load(`<?= route('load-domains') ?>`);
+    }
+    loadDomains();
+
+    $('[data-mode="<?= config('autossl.mode') ?? 'staging' ?>"]').removeClass('btn-secondary').addClass('btn-primary');
+
     function parseQuery(query) {
         const params = new URLSearchParams(query);
         const obj = {};
@@ -107,10 +109,9 @@ use zFramework\Core\Facades\Cookie;
         }
     }
 
-
     function setLOAD() {
         $('[data-load]').off('click').on('click', function() {
-            $('[load-content]').html(`<i class="fa fa-spin fa-spinner me-2"></i> Yükleniyor...`);
+            $('[load-content]').html(`<i class="fa fa-spin fa-spinner me-2"></i> Loading...`);
             if ($(this).hasAttr('data-post')) {
                 $.post($(this).attr('data-load'), parseQuery($(this).attr('data-post')), e => $('[load-content]').html(e));
             } else {
@@ -118,18 +119,5 @@ use zFramework\Core\Facades\Cookie;
             }
         });
     }
-
-    $(() => {
-        setLOAD();
-        let domains = $('[data-domain-key]');
-        domains.on('click', function() {
-            domains.removeClass('border-success');
-            $(this).addClass('border-success');
-            $.get('<?= route('domains.index') ?>?key=' + $(this).attr('data-domain-key'));
-            $('[load-content]').html(null);
-        });
-
-        $('[data-domain-key="<?= Cookie::get('domain') ?? 0 ?>"]').click();
-    });
 </script>
 @endsection

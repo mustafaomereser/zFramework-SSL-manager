@@ -8,10 +8,11 @@ class View
     static $binds  = [];
     static $config = [];
     static $view;
+    static $view_name;
     static $data;
     static $sections;
     static $directives = [];
-
+    static $mergeChildVars = false;
     /**
      * Prepare config.
      */
@@ -27,6 +28,7 @@ class View
     private static function reset(): void
     {
         self::$view       = null;
+        self::$view_name  = null;
         self::$data       = null;
         self::$sections   = [];
     }
@@ -40,6 +42,7 @@ class View
     public static function view(string $view_name, array $data = [])
     {
         if (isset(self::$binds[$view_name])) $data = self::$binds[$view_name]() + $data;
+        self::$view_name = $view_name;
 
         // search view path: start
         $view_path = self::$config['dir'] . '/' . self::parseViewName($view_name);
@@ -53,21 +56,23 @@ class View
         self::$data = $data;
         self::parse();
 
-
+        $cache = null;
         if (self::$config['caching']) {
             # crate views folder.
-            @mkdir(self::$config['caches'], 0777, true);
             $cache = self::$config['caches'] . '/' . $view_name . '.stored.php';
-            file_put_contents($cache, self::$view);
+            file_put_contents2($cache, self::$view);
         }
 
-        ob_start();
-        extract($data);
+        // closure for extract safe
+        $output = function () use ($data, $cache) {
+            ob_start();
+            extract($data);
+            if (self::$config['caching']) include($cache);
+            else echo eval('?>' . self::$view);
+            return ob_get_clean();
+        };
+        $output = $output();
 
-        if (self::$config['caching']) include($cache);
-        else echo eval('?>' . self::$view);
-
-        $output = ob_get_clean();
         self::reset();
 
         if (@self::$config['minify'] ?? false) {
@@ -124,6 +129,7 @@ class View
         self::parseVariables();
         self::parseForEach();
         self::parseSections();
+        if (!self::$mergeChildVars) self::mergeMainVars();
         self::parseExtends();
         self::parseYields();
         self::customDirectives();
@@ -146,6 +152,23 @@ class View
         self::$view = preg_replace_callback('/@php(.*?)@endphp/s', fn($code) => '<?php ' . $code[1] . ' ?>', self::$view);
     }
 
+    private static function mergeMainVars(): void
+    {
+        preg_match_all('/<\?php(.*?)\?>/s', self::$view, $GLOBALS['VIEW_MERGE_CHILD_VARS']['matches']);
+        try {
+            foreach ($GLOBALS['VIEW_MERGE_CHILD_VARS']['matches'][1] as $mergeMainVarsCode) {
+                extract(self::$data);
+                eval($mergeMainVarsCode);
+            }
+            $GLOBALS['VIEW_MERGE_CHILD_VARS']['data'] = get_defined_vars();
+            unset($GLOBALS['VIEW_MERGE_CHILD_VARS']['data']['mergeMainVarsCode']);
+            self::$data = array_merge($GLOBALS['VIEW_MERGE_CHILD_VARS']['data'], self::$data);
+        } catch (\Throwable $e) {
+        }
+
+        self::$mergeChildVars = true;
+    }
+
     /**
      * {{ $degisken }} yazılan her yeri <?=$degisken?> olarak değiştiren metod
      */
@@ -162,7 +185,6 @@ class View
     public static function parseForEach(): void
     {
         self::$view = preg_replace_callback('/@foreach\((.*?)\)/', fn($expression) => '<?php foreach(' . $expression[1] . '): ?>', self::$view);
-
         self::$view = preg_replace('/@endforeach/', '<?php endforeach; ?>', self::$view);
     }
 
@@ -181,7 +203,7 @@ class View
      */
     public static function parseExtends(): void
     {
-        self::$view = preg_replace_callback('/@extends\(\'(.*?)\'\)/', fn($viewName) => self::view($viewName[1], self::$data, true), self::$view);
+        self::$view = preg_replace_callback('/@extends\(\'(.*?)\'\)/', fn($viewName) => self::view($viewName[1], self::$data), self::$view);
     }
 
     /**
@@ -199,7 +221,6 @@ class View
      */
     public static function parseSections(): void
     {
-
         self::$view = preg_replace_callback('/@section\(\'(.*?)\', \'(.*?)\'\)/', function ($sectionDetail) {
             self::$sections[$sectionDetail[1]] = $sectionDetail[2];
             return '';
