@@ -26,6 +26,7 @@ use zFramework\Core\Csrf;
 
             let challengeAuth = $(this).find('[data-key="notifyChallenge_data"]').html();
             let challenge_data = $(this).find('[data-key="challenge_data"]').html();
+            let upload_challenge_data = $(this).find('[data-key="upload_challenge_data"]').html();
             let cert = $(this).find('[data-key="cert"]').html();
             let install_ssl_data = $(this).find('[data-key="install_ssl_data"]').html();
 
@@ -34,7 +35,7 @@ use zFramework\Core\Csrf;
                 item.append(`<span class="badge">Challenged</span>`);
             } else {
                 item.append(`
-                    <button class="btn btn-sm btn-secondary ms-2" data-load="${'<?= route('certificates.upload-challenge') ?>'.replace('{id}', id)}">Upload Challenge (with cPanel API)</button>
+                    ${upload_challenge_data.length ? '<span class="badge">Challenge uploaded</span>' : `<button class="btn btn-sm btn-secondary ms-2" data-load="${'<?= route('certificates.upload-challenge') ?>'.replace('{id}', id)}">Upload Challenge (with cPanel API)</button>`} 
                     <button class="btn btn-sm btn-secondary ms-2" data-load="${'<?= route('certificates.challenge') ?>'.replace('{id}', id)}">Try Challenge</button>
                 `);
             }

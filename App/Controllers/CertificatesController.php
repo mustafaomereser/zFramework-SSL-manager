@@ -74,6 +74,9 @@ class CertificatesController extends Controller
 
         if ($upload['status']) {
             echo 'ok';
+            $certificate['update']([
+                'upload_challenge_data' => $upload
+            ]);
         } else {
             foreach ($upload['data']['uploads'] as $reason) echo $reason['reason'] . "<br>";
         }
@@ -154,7 +157,7 @@ class CertificatesController extends Controller
         ]);
         echo "<pre>";
         print_r($result);
-        echo "</pre>";
+        echo "</pre><script>loadDomains()</script>";
     }
 
 

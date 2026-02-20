@@ -60,6 +60,8 @@
 
 @section('footer')
 <script>
+    let lastdomain = null;
+
     function loadDomains() {
         $('[domains]').load(`<?= route('load-domains') ?>`);
     }

@@ -28,7 +28,8 @@
             domains.removeClass('border-success');
             $(this).addClass('border-success');
             $.get('<?= route('domains.index') ?>?key=' + $(this).attr('data-domain-key'));
-            $('[load-content]').html(null);
+            if ($(this).attr('data-domain-key') != lastdomain) $('[load-content]').html(null);
+            lastdomain = $(this).attr('data-domain-key');
         });
 
         $('[data-domain-key="<?= zFramework\Core\Facades\Cookie::get('domain') ?? 0 ?>"]').click();

@@ -14,20 +14,21 @@ class Certificates
     public static function columns()
     {
         return [
-            'id'                   => ['primary'],
-            'domain'               => ['text'],
-            'cert'                 => ['text'],
-            'ca_bundle'            => ['text'],
-            'private'              => ['text'],
-            'last_date'            => ['datetime'],
-
-            'order_data'           => ['json'],
-            'challenge_data'       => ['json'],
-            'notifyChallenge_data' => ['json'],
-            'challengeAuth_data'   => ['json'],
-            'finalize_data'        => ['json'],
-            'getCertificate_data'  => ['json'],
-            'install_ssl_data'     => ['json'],
+            'id'                    => ['primary'],
+            'domain'                => ['text'],
+            'cert'                  => ['text'],
+            'ca_bundle'             => ['text'],
+            'private'               => ['text'],
+            'last_date'             => ['datetime'],
+ 
+            'order_data'            => ['json'],
+            'challenge_data'        => ['json'],
+            'notifyChallenge_data'  => ['json'],
+            'challengeAuth_data'    => ['json'],
+            'finalize_data'         => ['json'],
+            'getCertificate_data'   => ['json'],
+            'install_ssl_data'      => ['json'],
+            'upload_challenge_data' => ['json'],
 
             'timestamps'
         ];
