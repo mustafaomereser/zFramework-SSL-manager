@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Models\Certificates;
 use App\Models\Domains;
 use zFramework\Core\Facades\Cookie;
 use zFramework\Core\Helpers\AutoSSL;
@@ -30,9 +31,14 @@ class API
         CPanelAPI::$apiToken = $cpanel['api-token'];
     }
 
+    public static function allcertificates()
+    {
+        return self::makeTable(json_decode(json_encode((new Certificates)->get() ?? [], JSON_UNESCAPED_UNICODE), true));
+    }
+
     public static function certificates()
     {
-        return view('app.layouts.certificates');
+        return view('app.layouts.certificates', ['certs' => API::$domain['certificates']()]);
     }
 
     public static function makeTable($data, bool $isRoot = true, string $prefix = ''): string

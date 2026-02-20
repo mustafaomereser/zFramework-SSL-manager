@@ -45,7 +45,8 @@
         <div class="card">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-2">
-                    <button class="btn btn-secondary" data-load="/api/certificates" certificates-page>Certificates</button>
+                    <button class="btn btn-secondary" data-load="/api/allcertificates" all-certificates-page>All Certificates</button>
+                    <button class="btn btn-secondary" data-load="/api/certificates" certificates-page>Domain's Certificates</button>
                 </div>
 
                 <div class="container-fluid" style="overflow: auto">
