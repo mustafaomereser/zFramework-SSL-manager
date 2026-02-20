@@ -57,14 +57,17 @@ class DomainsController extends Controller
     public function setAll()
     {
         $validate = Validator::validate($_REQUEST, [
-            'domain'     => ['required'],
-            'public_dir' => ['required'],
-            'ftp'        => ['nullable'],
-            'cpanel'     => ['nullable'],
+            'domain'      => ['required'],
+            'public_dir'  => ['required'],
+            'ftp'         => ['nullable'],
+            'cpanel'      => ['nullable'],
+            'main_domain' => ['nullable'],
         ]);
 
         $validate['ftp']    = json_encode($validate['ftp'] ?? [], JSON_UNESCAPED_UNICODE);
         $validate['cpanel'] = json_encode($validate['cpanel'] ?? [], JSON_UNESCAPED_UNICODE);
+
+        if (!$validate['main_domain']) unset($validate['main_domain']);
 
         return $validate;
     }

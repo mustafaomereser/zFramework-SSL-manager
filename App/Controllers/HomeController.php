@@ -25,7 +25,7 @@ class HomeController extends Controller
 
     public function load()
     {
-        $domains = $this->domains->get();
+        $domains = $this->domains->whereRaw('main_domain IS NULL')->get();
         return view('app.layouts.domains', compact('domains'));
     }
 

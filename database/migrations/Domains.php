@@ -15,6 +15,7 @@ class Domains
     {
         return [
             'id'           => ['primary'],
+            'main_domain'  => ['int', 'nullable'],
             'domain'       => ['varchar'],
             'public_dir'   => ['varchar'],
             'ftp'          => ['json'],

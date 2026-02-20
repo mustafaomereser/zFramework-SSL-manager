@@ -21,6 +21,11 @@ class API
         self::$autoSSL = new AutoSSL(['staging' => AutoSSL::STAGING, 'prod' => AutoSSL::PROD][config('autossl.mode')] ?? AutoSSL::STAGING);
 
         self::$domain  = (new Domains)->where('id', Cookie::get('domain') ?? 0)->first();
+        if (self::$domain['main_domain']) {
+            $parent = self::$domain['parent']();
+            self::$domain['domain'] = self::$domain['domain'] . "." . $parent['domain'];
+            self::$domain['cpanel'] = $parent['cpanel'];
+        }
 
         if (!isset(self::$domain['id'])) return;
         self::$prepareDomain = self::$autoSSL->prepareDomain(self::$domain['domain']);
