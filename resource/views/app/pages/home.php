@@ -2,6 +2,7 @@
 
 @section('body')
 <!-- Stat cards -->
+<?php /*
 <div class="row g-3 mb-4">
     <div class="col-3">
         <div class="stat-card c-indigo">
@@ -32,7 +33,7 @@
         </div>
     </div>
 </div>
-
+*/ ?>
 <!-- Tabs -->
 <ul class="nav nav-tabs" id="certTabs">
     <li class="nav-item">

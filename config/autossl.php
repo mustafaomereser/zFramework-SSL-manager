@@ -1,4 +1,4 @@
 <?php 
 return array (
-  'mode' => 'staging',
+  'mode' => 'prod',
 );

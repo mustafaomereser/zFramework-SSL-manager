@@ -29,4 +29,12 @@ Route::noCSRF(true)->group(function () {
     })->name('switch');
 
     Route::resource('/', HomeController::class);
+
+    Route::get('/db-migrate', function () {
+        echo "<style>body{background: black} pre {background: #111; font-size: 11pt; padding: 10px; border-radius: 5px}</style>";
+        ob_start();
+        zFramework\Kernel\Terminal::begin(['terminal', 'db', 'migrate', '--web']);
+        $logs = ob_get_clean();
+        echo "<pre>" . trim($logs) . "</pre>";
+    });
 });
