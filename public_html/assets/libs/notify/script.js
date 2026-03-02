@@ -13,7 +13,7 @@ $.notify = function (type) {
         start = notify_start;
         $('.custom-notify').each((_, item) => {
             item = $(item);;
-            item.css('bottom', `${start}px`);
+            item.css('top', `${start}px`);
             start += (20 + item.height());
         });
     };
@@ -27,30 +27,38 @@ $.notify = function (type) {
 
     this.clear = () => $('.custom-notify').remove();
 
-    this.remove = is => {
-        $(is).fadeOut(200, function () {
-            $(this).remove();
-            _this.organizer();
+    this.remove = is => $(is).fadeOut(200, function () {
+        $(this).remove();
+        _this.organizer();
+    });
+
+    this.linkify = text => {
+        const urlRegex = /\b((https?:\/\/|www\.)[^\s]+)|([a-z0-9\-]+\.[a-z]{2,}(\/[^\s]*)?)/gi;
+        const hasURL = urlRegex.test(text);
+
+        const linkedText = text.replace(urlRegex, (url) => {
+            let href = url;
+            if (!href.match(/^https?:\/\//)) href = 'https://' + href;
+            return `<a href="${href}" target="_blank" class="text-light fw-bold" rel="noopener noreferrer">${url}</a>`;
         });
-    }
+
+        return { hasURL, text: linkedText };
+    };
 
     this.show = (text, seconds = 5) => {
+        let hasurl = this.linkify(text);
+
         $('body').append(`
             <div class="custom-notify bg-${type}">
                 <div class="icon"><i class="fa ${icons[type]}"></i></div>
-                <div class="close">&times;</div>
-                <div class="text">${text}</div>
+                ${hasurl.hasURL ? `<div class="close">&times;</div>` : ''}
+                <div class="text">${hasurl.text}</div>
             </div>
         `);
+
         let last_item = $([...$('.custom-notify')].pop());
-
-        setTimeout(() => {
-            _this.remove(last_item);
-        }, (seconds * 1000));
-
-        last_item.find('.close').on('click', function () {
-            _this.remove(last_item);
-        });
+        setTimeout(() => _this.remove(last_item), (seconds * 1000));
+        hasurl.hasURL ? last_item.find('.close').on('click', () => _this.remove(last_item)) : last_item.on('mouseover', () => _this.remove(last_item));
 
         _this.organizer();
         return _this;

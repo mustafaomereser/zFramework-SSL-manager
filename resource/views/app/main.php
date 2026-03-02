@@ -47,7 +47,7 @@
                         $subdomains    = $domain['subdomains']();
                         $domain_status = App\Helpers\API::getSSLStatus($domain['domain']);
                     ?>
-                        <div class="domain-item" href="<?= route('domains.show', ['id' => $domain['id']]) ?>" data-domain="<?= $domain['fulldomain'] ?>">
+                        <div class="domain-item" data-load="<?= route('domains.show', ['id' => $domain['id']]) ?>" data-domain="<?= $domain['fulldomain'] ?>">
                             <div class="domain-item-head">
                                 <span class="status-dot <?= $domain_status['status'] ?>"></span>
                                 <span class="domain-name"><?= $domain['domain'] ?></span>
@@ -359,6 +359,10 @@
             });
 
             $('[data-mode="<?= config('autossl.mode') ?? 'staging' ?>"]').trigger('active');
+
+            $(document).on('click', '[data-load]', function() {
+                $('.content-body').html('loading.').load($(this).data('load'));
+            });
         });
     </script>
     @yield('footer')

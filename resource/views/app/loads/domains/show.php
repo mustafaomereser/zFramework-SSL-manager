@@ -1,5 +1,3 @@
-@extends('app.main')
-@section('body')
 <div class="domain-panel mb-4">
     <div class="domain-panel-head">
         <span class="status-dot <?= $domain_status['status'] ?>" style="width:8px;height:8px"></span>
@@ -66,9 +64,7 @@
         </div>
     <?php endif ?>
 </div>
-@endsection
-@section('footer')
+
 <script>
     $('[data-domain="<?= $item['fulldomain'] ?>"]').trigger('active');
 </script>
-@endsection

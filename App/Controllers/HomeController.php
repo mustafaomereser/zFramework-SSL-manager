@@ -53,11 +53,9 @@ class HomeController extends Controller
     /** POST page | POST: /
      * @return mixed
      */
-    public function store(CommandRequest $command)
+    public function store()
     {
-        $command = $command->validated()['command'];
-        if (!$command) die(\zFramework\Kernel\Terminal::begin(["terminal", 'start', "--web"]));
-        die(\zFramework\Kernel\Terminal::begin(["terminal", $command, "--web"]));
+        abort(404);
     }
 
     /** Update page | PATCH/PUT: /id

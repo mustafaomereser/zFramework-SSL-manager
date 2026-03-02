@@ -7,10 +7,12 @@
     position: fixed;
     right: 5px;
     z-index: 2000;
-    bottom: 0;
+    top: 0;
 
     padding: 7px;
     border-radius: 5px;
+
+    opacity: 1;
 
     transition: 200ms bottom ease-in, 100ms width ease-in;
 

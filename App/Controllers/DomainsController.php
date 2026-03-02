@@ -36,7 +36,7 @@ class DomainsController extends Controller
         $item            = $this->domains->where('id', $id)->firstOrFail();
         $domain_status   = API::getSSLStatus($item['fulldomain']);
         $item_subdomains = $item['subdomains']();
-        return view('app.pages.domains.show', compact('item', 'domain_status', 'item_subdomains'));
+        return view('app.loads.domains.show', compact('item', 'domain_status', 'item_subdomains'));
     }
 
     /** Create page | GET: /create
