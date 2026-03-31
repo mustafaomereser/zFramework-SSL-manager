@@ -244,7 +244,7 @@
                 return Math.round((value / total) * 100 * 100) / 100;
             }
 
-            $('[data-delete-cert]').on('click', function() {
+            $(document).on('click', '[data-delete-cert]', function() {
                 $.ask.do({
                     onAccept: () => {
                         $.post('<?= route('certificates.delete') ?>'.replace('{id}', $(this).attr('data-delete-cert')), {
@@ -269,12 +269,12 @@
             ];
 
 
-            $('[data-cert-step]').on('click', function() {
+            $(document).on('click', '[data-cert-step]', function() {
                 $.core.btn.spin(this);
                 certCallbacks[$(this).attr('data-cert-step')](e => ($.showAlerts(e.alerts), $.core.btn.unset(this)), $(this).attr('data-cert-id'));
             });
 
-            $('[data-domain-issue]').on('click', function() {
+            $(document).on('click', '[data-domain-issue]', function() {
                 let btn = $(this);
 
                 let step = 0;
@@ -341,7 +341,7 @@
             }
 
             // Mode toggle
-            $('.env-opt').on('active', function(e) {
+            $(document).on('active', '.env-opt', function(e) {
                 e.preventDefault();
                 $('.env-opt').removeClass('is-staging is-prod selected');
                 const isProd = $(this).data('mode') === 'prod';
@@ -353,7 +353,7 @@
             });
 
             // Renew spin
-            $('#renewBtn').on('click', function() {
+            $(document).on('click', '#renewBtn', function() {
                 const $i = $(this).find('i').addClass('spinning');
                 switchmode($('.env-opt.selected').data('mode'), () => $i.removeClass('spinning'));
             });
@@ -361,7 +361,8 @@
             $('[data-mode="<?= config('autossl.mode') ?? 'staging' ?>"]').trigger('active');
 
             $(document).on('click', '[data-load]', function() {
-                $('.content-body').html('loading.').load($(this).data('load'));
+                $('.content-body').html('loading.');
+                $.get($(this).data('load'), e => ($('.content-body').html(e), init()))
             });
         });
     </script>
