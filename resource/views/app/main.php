@@ -348,8 +348,8 @@
                 $(this).addClass(isProd ? 'is-prod selected' : 'is-staging selected');
                 $('#envChip').removeClass('staging prod').addClass(isProd ? 'prod' : 'staging');
                 $('#envLabel').text(isProd ? 'Production' : 'Staging');
-            }).on('click', function() {
-                switchmode($(this).data('mode'), () => $(this).trigger('active'));
+            }).on('click', '.env-opt', function() {
+                switchmode($(this).attr('data-mode'), () => $(this).trigger('active'));
             });
 
             // Renew spin

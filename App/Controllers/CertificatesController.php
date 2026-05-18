@@ -62,7 +62,7 @@ class CertificatesController extends Controller
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
         $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
         $challenge   = json_decode($certificate['challenge_data'], true);
-
+        
         API::setSettingsDomain($domain['id']);
         $dir = API::domainPath($domain['fulldomain']) . '/.well-known/acme-challenge';
         $tmp = tmpfile();
@@ -140,7 +140,7 @@ class CertificatesController extends Controller
         $certificate = $this->certificates->where('id', $id)->firstOrFail();
         $domain      = $this->domains->where('fulldomain', $certificate['domain'])->firstOrFail();
         API::setSettingsDomain($domain['id']);
-        
+
         $zip      = new ZipArchive();
         $temp_zip = tempnam(sys_get_temp_dir(), 'zip');
         if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) exit("Zip cannot open!");
