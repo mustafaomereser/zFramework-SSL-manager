@@ -14,27 +14,27 @@ Route::noCSRF(true)->group(function () {
     Route::resource('/domains', DomainsController::class);
 
     Route::pre('/certificates')->group(function () {
-        Route::get('/challenge/{id}', [CertificatesController::class, 'challenge'])->name('challenge');
+        Route::get('/challenge/{id}',      [CertificatesController::class, 'challenge'])->name('challenge');
         Route::get('/upload-challenge/{id}', [CertificatesController::class, 'uploadChallenge'])->name('upload-challenge');
-        Route::get('/download/{id}', [CertificatesController::class, 'download'])->name('download');
-        Route::get('/install/{id}', [CertificatesController::class, 'install'])->name('install');
+        Route::get('/add-dns-txt/{id}',    [CertificatesController::class, 'addDnsTxt'])->name('add-dns-txt');
+        Route::get('/download/{id}',       [CertificatesController::class, 'download'])->name('download');
+        Route::get('/install/{id}',        [CertificatesController::class, 'install'])->name('install');
         Route::resource('/', CertificatesController::class);
     });
 
     Route::get('/switch/{mode}', function ($mode) {
         Config::set('autossl', ['mode' => $mode]);
         API::$autoSSL->unlinkAccount();
-        Alerts::success("Mode is switched to $mode");
+        Alerts::success("Mode switched to $mode");
         return Response::json(['token' => @end(explode('/', API::$autoSSL->ensureAccount()))]);
     })->name('switch');
 
     Route::resource('/', HomeController::class);
 
     Route::get('/db-migrate', function () {
-        echo "<style>body{background: black} pre {background: #111; font-size: 11pt; padding: 10px; border-radius: 5px}</style>";
+        echo "<style>body{background:#000}pre{background:#111;font-size:11pt;padding:10px;border-radius:5px}</style>";
         ob_start();
         zFramework\Kernel\Terminal::begin(['terminal', 'db', 'migrate', '--web']);
-        $logs = ob_get_clean();
-        echo "<pre>" . trim($logs) . "</pre>";
+        echo '<pre>' . trim(ob_get_clean()) . '</pre>';
     });
 });

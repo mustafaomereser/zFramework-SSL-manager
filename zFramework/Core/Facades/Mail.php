@@ -9,9 +9,10 @@ class Mail
 {
     static $mail;
 
-    static $toMail = [];
-    static $cc     = [];
-    static $bcc    = [];
+    static $toMail  = [];
+    static $cc      = [];
+    static $bcc     = [];
+    static $sending = false;
 
     private static $security = [
         'tls' => PHPMailer::ENCRYPTION_STARTTLS,
@@ -22,8 +23,17 @@ class Mail
      */
     public static function init()
     {
-        $mailConfig = Config::get('mail');
-        if (!$mailConfig['sending']) throw new \Exception(_l('errors.mail.sending-is-false'));
+        self::set(Config::get('mail'));
+    }
+
+    /**
+     * Set mailer settings
+     * @param $mailConfig
+     */
+    public static function set(array $mailConfig)
+    {
+        self::$sending = $mailConfig['sending'] ?? false;
+        if (!$mailConfig['sending']) return false;
 
         self::$mail = new PHPMailer;
         self::$mail->isSMTP();
@@ -73,7 +83,7 @@ class Mail
      */
     public static function clearTo(): self
     {
-        self::$toMail[] = [];
+        self::$toMail = [];
         return new self();
     }
 
@@ -94,7 +104,7 @@ class Mail
      */
     public static function clearCc(): self
     {
-        self::$cc[] = [];
+        self::$cc = [];
         return new self();
     }
 
@@ -115,10 +125,9 @@ class Mail
      */
     public static function clearBcc(): self
     {
-        self::$bcc[] = [];
+        self::$bcc = [];
         return new self();
     }
-
 
     /**
      * Send Mail
@@ -127,6 +136,7 @@ class Mail
      */
     public static function send(array $data): bool
     {
+        if (!self::$sending) throw new \Exception(_l('errors.mail.sending-is-false'));
         if (!count(self::$toMail)) throw new \Exception(_l('errors.mail.must-set-a-mail'));
 
         self::$mail->Subject = Config::get('mail.subject') . (@$data['subject']);

@@ -17,6 +17,7 @@ class Auth
      */
     static $api_mode = false;
 
+    static $database_exists = false;
     /**
      * Columns for match
      */
@@ -29,8 +30,9 @@ class Auth
 
     public static function init()
     {
-        if ($columns = (new User)->special_columns) self::$columns = $columns;
-        if (isset($GLOBALS['databases']['connections'][(new User)->db]) && !self::check() && $api_token = (self::getMode())::get('auth-stay-in')) self::attempt(['api_token' => $api_token]);
+        self::$database_exists = isset($GLOBALS['databases']['connections'][(new User)->db]);
+        if ($columns = @(new User)->special_columns) self::$columns = $columns;
+        if (self::$database_exists && !self::check() && $api_token = (self::getMode())::get('auth-stay-in')) self::attempt(['api_token' => $api_token]);
     }
 
     /**
@@ -78,7 +80,7 @@ class Auth
      */
     public static function check(): bool
     {
-        if (isset(self::user()['id'])) return true;
+        if (self::$database_exists && isset(self::user()['id'])) return true;
         return false;
     }
 
@@ -90,8 +92,22 @@ class Auth
     {
         if (!$user_id = (self::getMode())::get('auth-token')) return false;
         if (self::$user == null) self::$user = (new User)->where('id', $user_id)->first(); // ->where('api_token', 'test', 'OR')
-        if (!@self::$user['id'] || self::$user[self::$columns['password']] != (self::getMode())::get('auth-password')) return self::logout();
+        if (!@self::$user['id'] || !hash_equals((string) self::$user[self::$columns['password']], (string) (self::getMode())::get('auth-password'))) return self::logout();
         return self::$user;
+    }
+
+    /**
+     * Hash a plain password using the configured encode method.
+     * @param string $plain
+     * @return string
+     */
+    public static function encodePassword(string $plain): string
+    {
+        return match (self::$columns['passwordencode']) {
+            'bcrypt' => password_hash($plain, PASSWORD_BCRYPT),
+            'md5'    => md5($plain),
+            default  => Crypter::encode($plain),
+        };
     }
 
     /**
@@ -104,10 +120,15 @@ class Auth
     {
         if (self::check()) return false;
 
-        $user = (new User)->select('id, api_token, ' . self::$columns['password']);
-        if (isset($fields[self::$columns['password']])) $fields[self::$columns['password']] = ['crypter' => fn() => Crypter::encode($fields[self::$columns['password']]), 'md5' => fn() => md5($fields[self::$columns['password']])][self::$columns['passwordencode']]();
+        $user  = (new User)->select('id, api_token, ' . self::$columns['password']);
+        $plain = $fields[self::$columns['password']] ?? null;
+        unset($fields[self::$columns['password']]);
         foreach ($fields as $key => $value) $user->where($key, $value);
         $user = $user->first();
+
+        $hash  = $user[self::$columns['password']] ?? '';
+        $valid = self::$columns['passwordencode'] === 'bcrypt' ? password_verify($plain, $hash) : self::encodePassword($plain) === $hash;
+        if (!@$user['id'] || ($plain !== null && !$valid)) return false;
 
         if (@$user['id']) {
             self::login($user);
@@ -124,6 +145,6 @@ class Auth
      */
     public static function id(): int|null
     {
-        return self::user()['id'] ?? null;
+        return (self::user() ?: [])['id'] ?? null;
     }
 }

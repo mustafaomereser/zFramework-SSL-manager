@@ -29,6 +29,7 @@ class Certificates
             'getCertificate_data'   => ['json'],
             'install_ssl_data'      => ['json'],
             'upload_challenge_data' => ['json'],
+            'challenge_type'        => ['varchar', 'nullable'],
 
             'timestamps'
         ];

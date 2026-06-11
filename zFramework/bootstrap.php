@@ -1,7 +1,8 @@
 <?php
 define('FRAMEWORK_PATH', __DIR__);
-define('FRAMEWORK_VERSION', '2.8.0');
-header("X-Powered-By: zFramework v" . FRAMEWORK_VERSION);
+define('FRAMEWORK_VERSION', '2.9.0');
+$app_config = include(BASE_PATH . "/config/app.php");
+if ($app_config['x-powered-by'] ?? true) header("X-Powered-By: zFramework v" . FRAMEWORK_VERSION);
 
 // Initalize settings
 date_default_timezone_set('Europe/Istanbul');
@@ -25,10 +26,10 @@ $GLOBALS['databases'] = [
     'connections' => include(BASE_PATH . '/database/connections.php') #db connections strings
 ];
 
-if (!isset($cron_mode) && ((include(BASE_PATH . "/config/app.php"))['force-https'] ?? false) && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === "off")) die(header('Location: https://' . ($_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'])));
+if (!isset($cron_mode) && ($app_config['force-https'] ?? false) && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === "off")) die(header('Location: https://' . ($_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'])));
 
-include(BASE_PATH . '/zFramework/vendor/autoload.php');
-include(BASE_PATH . '/zFramework/run.php');
+include(FRAMEWORK_PATH . '/vendor/autoload.php');
+include(FRAMEWORK_PATH . '/run.php');
 
 spl_autoload_register(function ($class) {
     zFramework\Run::includer(BASE_PATH . "/$class.php");

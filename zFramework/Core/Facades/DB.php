@@ -4,6 +4,7 @@ namespace zFramework\Core\Facades;
 
 use ReflectionClass;
 use zFramework\Core\Facades\Analyzer\DbCollector;
+use zFramework\Core\Facades\DB\ModelResult;
 use zFramework\Core\Helpers\Date;
 use zFramework\Core\Traits\DB\OrMethods;
 use zFramework\Core\Traits\DB\RelationShips;
@@ -102,10 +103,11 @@ class DB
     /**
      * Select table.
      * @param string $table
-     * @return self
+     * @return self|bool
      */
-    public function table(string $table): self
+    public function table(string $table): self|bool
     {
+        if (!$this->dbname) return false;
         if (!in_array($table, array_keys($this->tables()['TABLE_COLUMNS'] ?? []))) throw new \Exception("`$table` is not there in database.", 1001);
         $this->table         = $table;
         $this->originalTable = $table;
@@ -131,7 +133,7 @@ class DB
      * Get primary key.
      * @return string|null
      */
-    private function getPrimary(): string|null
+    protected function getPrimary(): string|null
     {
         if (!$this->table) throw new \Exception('firstly you must select a table for get primary key.');
         return $this->primary ?? @$GLOBALS["DB"][$this->dbname]["TABLE_COLUMNS"][$this->table]['primary'] ?? null;
@@ -244,8 +246,9 @@ class DB
     }
 
     /**
-     * Set Closures for rows
-     * @return array
+     * Set Closures for rows and wrap each row in ModelResult.
+     * Enables both $row['key'] and $row->key / $row->relation() access.
+     * @return array<ModelResult>
      */
     public function setClosures(array $rows): array
     {
@@ -253,10 +256,12 @@ class DB
         foreach ($rows as $key => $row) {
             foreach ($GLOBALS['model-closures'][$this->db][$this->table] as $closure) $rows[$key][$closure] = fn(...$args) => $this->{$closure}(...array_merge($args, [$row]));
 
-            if (!isset($row[$primary_key])) continue;
+            if (isset($row[$primary_key])) {
+                $rows[$key]['update'] = fn($sets) => $this->where($primary_key, $row[$primary_key])->update($sets);
+                $rows[$key]['delete'] = fn() => $this->where($primary_key, $row[$primary_key])->delete();
+            }
 
-            $rows[$key]['update'] = fn($sets) => $this->where($primary_key, $row[$primary_key])->update($sets);
-            $rows[$key]['delete'] = fn() => $this->where($primary_key, $row[$primary_key])->delete();
+            $rows[$key] = new ModelResult($rows[$key]);
         }
         return $rows;
     }
@@ -341,7 +346,7 @@ class DB
     public function where(): self
     {
         $this->wherePrev = 'AND';
-        return self::addWhere(func_get_args());
+        return self::addWhereOrHaving(func_get_args());
     }
 
     /**
@@ -351,15 +356,51 @@ class DB
     public function whereOr(): self
     {
         $this->wherePrev = 'OR';
-        return self::addWhere(func_get_args());
+        return self::addWhereOrHaving(func_get_args());
     }
 
     /**
-     * Add where item.
+     * add a "AND NOT" where — negates the condition.
+     * whereNot('status', 'active')          → WHERE status != 'active'
+     * whereNot('name', 'LIKE', '%test%')    → WHERE name NOT LIKE '%test%'
+     * @return self
+     */
+    public function whereNot(): self
+    {
+        $this->wherePrev = 'AND';
+        return self::addWhereOrHaving(self::negateArgs(func_get_args()));
+    }
+
+    /**
+     * add a "OR NOT" where — negates the condition with OR connector.
+     * @return self
+     */
+    public function whereOrNot(): self
+    {
+        $this->wherePrev = 'OR';
+        return self::addWhereOrHaving(self::negateArgs(func_get_args()));
+    }
+
+    /**
+     * Negate where/having arguments.
+     * 2-arg: ['key', value]          → ['key', '!=', value]
+     * 3-arg: ['key', 'op', value]    → ['key', 'NOT op', value]
+     * @param array $args
+     * @return array
+     */
+    private static function negateArgs(array $args): array
+    {
+        if (count($args) === 2) return [$args[0], '!=', $args[1]];
+        if (count($args) >= 3) return [$args[0], 'NOT ' . $args[1], $args[2]];
+        return $args;
+    }
+
+    /**
+     * Add where or having.
      * @param array $parameters
      * @return self
      */
-    private function addWhere(array $parameters): self
+    private function addWhereOrHaving(array $parameters, string $addtype = 'where'): self
     {
         if (gettype($parameters[0]) == 'array') {
             $type    = 'group';
@@ -386,7 +427,7 @@ class DB
             ];
         }
 
-        $this->buildQuery['where'][] = [
+        $this->buildQuery[$addtype][] = [
             'type'     => $type,
             'queries'  => $queries
         ];
@@ -572,9 +613,46 @@ class DB
         return compact('key', 'operator', 'value', 'prev');
     }
 
-    public function having($column, $operator, $value, $prev)
+    /**
+     * add a "AND" having
+     * @return self
+     */
+    public function having(): self
     {
-        $this->buildQuery['having'][] = [];
+        $this->wherePrev = 'AND';
+        return self::addWhereOrHaving(func_get_args(), 'having');
+    }
+
+    /**
+     * add a "OR" having
+     * @return self
+     */
+    public function havingOr(): self
+    {
+        $this->wherePrev = 'OR';
+        return self::addWhereOrHaving(func_get_args(), 'having');
+    }
+
+    /**
+     * add a "AND NOT" having
+     * havingNot('count', 5)              → HAVING count != 5
+     * havingNot('name', 'LIKE', '%x%')   → HAVING name NOT LIKE '%x%'
+     * @return self
+     */
+    public function havingNot(): self
+    {
+        $this->wherePrev = 'AND';
+        return self::addWhereOrHaving(self::negateArgs(func_get_args()), 'having');
+    }
+
+    /**
+     * add a "OR NOT" having
+     * @return self
+     */
+    public function havingOrNot(): self
+    {
+        $this->wherePrev = 'OR';
+        return self::addWhereOrHaving(self::negateArgs(func_get_args()), 'having');
     }
 
     /**
@@ -637,9 +715,9 @@ class DB
 
     /**
      * get one row in rows
-     * @return array 
+     * @return ModelResult|array
      */
-    public function first(): array
+    public function first(): ModelResult|array
     {
         return $this->limit(1)->get()[0] ?? [];
     }
@@ -652,16 +730,6 @@ class DB
     public function find(string $value): array
     {
         return $this->where($this->getPrimary(), $value)->first();
-    }
-
-    /**
-     * Find or fail row by primary key
-     * @param string $value
-     * @return array 
-     */
-    public function findOrFail(string $value): array
-    {
-        return $this->where($this->getPrimary(), $value)->firstOrFail();
     }
 
     /**
@@ -715,11 +783,10 @@ class DB
      */
     public function paginate(int $per_page = 20, string $page_id = 'page', null|string $cache_id = null): array
     {
-        if (!$cache_id) {
-            Session::callback(function () {
-                unset($_SESSION[$this->db][$this->dbname]['paginate']['cache']);
-            });
-
+        if (!$cache_id) Session::callback(function () {
+            unset($_SESSION[$this->db][$this->dbname]['paginate']['cache']);
+        });
+        else {
             $cache = Session::callback(fn() => $_SESSION[$this->db][$this->dbname]['paginate']['cache'][$cache_id] ?? false);
             if ($cache) $row_count = $cache;
         }
@@ -727,13 +794,23 @@ class DB
         if (!isset($row_count)) {
             $snapshot = $this->buildQuery;
 
-            # get row count
-            $this->buildQuery['orderBy'] = [];
-            $this->buildQuery['groupBy'] = [];
-            $row_count = $this->select("COUNT(" . (!empty($this->buildQuery['join']) ? 'DISTINCT ' : NULL) . "{$this->table}.{$this->getPrimary()}) as count")->first()['count'];
-            #
+            if (!empty($this->buildQuery['groupBy']) || !empty($this->buildQuery['having'])) {
+                // exists GROUP BY or HAVING subquery
+                $this->buildQuery['orderBy'] = [];
+                $this->buildQuery['limit']   = [];
+                $innerSQL  = $this->buildSQL('select');
+                $innerData = $this->buildQuery['data'] ?? [];
+                $this->resetBuild();
+                $row_count = $this->prepare("SELECT COUNT(*) as count FROM ({$innerSQL}) as sub", $innerData)->fetch(\PDO::FETCH_ASSOC)['count'];
+            } else {
+                // Normal count
+                $this->buildQuery['orderBy'] = [];
+                $this->buildQuery['groupBy'] = [];
+                $row_count = $this->select("COUNT(" . (!empty($this->buildQuery['join']) ? 'DISTINCT ' : null) . "{$this->table}.{$this->getPrimary()}) as count")->first()['count'];
+            }
 
             $this->buildQuery = $snapshot;
+
             if ($cache_id) Session::callback(fn() => $_SESSION[$this->db][$this->dbname]['paginate']['cache'][$cache_id] = $row_count);
         }
 

@@ -1225,3 +1225,154 @@ body {
   background: var(--line-md);
   border-radius: 4px;
 }/*# sourceMappingURL=style.css.map */
+
+/* ─── DNS TXT record display ─── */
+.txt-record-info { margin-top: 4px; }
+.txt-value {
+    font-size: 10px;
+    color: var(--sky);
+    font-family: 'DM Mono', monospace;
+    background: var(--sky-bg);
+    border: 1px solid rgba(56,189,248,.15);
+    padding: 3px 7px;
+    border-radius: 4px;
+    margin-top: 3px;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    max-width: 260px;
+    cursor: pointer;
+    user-select: all;
+}
+.font-mono { font-family: 'DM Mono', monospace; }
+
+/* ─── Flex action row ─── */
+.action-btns {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.domain-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ─── Loading pulse dot ─── */
+.status-dot.status-loading {
+    background: var(--txt-3);
+    animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+}
+
+/* ─── Hamburger button (mobile only) ─── */
+.topbar-ham {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 7px;
+    border: 1px solid var(--line-md);
+    background: transparent;
+    color: var(--txt-2);
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-right: 8px;
+    transition: all .15s;
+}
+.topbar-ham:hover { background: var(--bg-elevated); color: var(--txt); }
+
+/* ─── Mobile sidebar backdrop ─── */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+}
+body.sidebar-open .sidebar-backdrop { display: block; }
+
+/* ═══ Tablet (≤ 991px) ═══ */
+@media (max-width: 991.98px) {
+    .domain-panel-head { flex-wrap: wrap; gap: 8px; }
+    .domain-panel-actions { width: 100%; justify-content: flex-start; }
+}
+
+/* ═══ Mobile (≤ 767px) ═══ */
+@media (max-width: 767.98px) {
+    .sidebar {
+        position: fixed;
+        left: -270px;
+        top: 0;
+        height: 100dvh;
+        z-index: 1000;
+        transition: left .25s ease;
+        width: 256px;
+    }
+    body.sidebar-open .sidebar {
+        left: 0;
+        box-shadow: 4px 0 32px rgba(0,0,0,.5);
+    }
+    .topbar-ham { display: inline-flex; }
+    .main-content { width: 100%; min-width: 0; }
+    .content-body { padding: 14px; }
+    .topbar { padding: 0 14px; }
+
+    /* Stacked table */
+    .table-card .table thead { display: none; }
+    .table-card .table tbody tr {
+        display: block;
+        border-bottom: 1px solid var(--line) !important;
+        padding: 10px 0;
+    }
+    .table-card .table tbody td {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-start;
+        text-align: right !important;
+        padding: 5px 14px !important;
+        border-bottom: none !important;
+    }
+    .table-card .table tbody td::before {
+        content: attr(data-label);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: var(--txt-3);
+        flex-shrink: 0;
+        margin-right: 12px;
+        padding-top: 2px;
+        text-align: left;
+    }
+    .table-card .table tbody td .action-btns { justify-content: flex-end; }
+
+    .domain-panel-name { font-size: 12px; }
+    .domain-panel-head .expiry-bar { display: none; }
+    .sub-item { flex-wrap: wrap; gap: 8px; }
+
+    .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+
+    .table-toolbar { flex-wrap: wrap; gap: 8px; }
+    .search-wrap { max-width: 100%; width: 100%; }
+}
+
+/* ═══ Very small (≤ 400px) ═══ */
+@media (max-width: 399.98px) {
+    .logo-tagline { display: none; }
+    .btn-row { font-size: 10px !important; padding: 3px 7px !important; }
+}
