@@ -8,3 +8,6 @@ zFramework/vendor
 zFramework/Caches
 config/crypt.php
 .DS_Store
+# syncFTP — do not commit
+syncftp.json
+syncftp.exe
